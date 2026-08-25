@@ -4,6 +4,8 @@ import { CurrentUser, RequestUser } from '../../common/auth.decorators';
 import { AuthService } from '../auth/auth.service';
 import { UsersRepository } from './users.repository';
 import { DomainError } from '../../common/errors';
+import { CustomersRepository } from '../customers/customers.repository';
+import { WorkersRepository } from '../workers/workers.repository';
 
 class AddRoleDto {
   /** A user may hold both marketplace roles; ADMIN is never self-assignable. */
@@ -16,7 +18,53 @@ export class UsersController {
   constructor(
     private readonly users: UsersRepository,
     private readonly auth: AuthService,
+    private readonly customers: CustomersRepository,
+    private readonly workers: WorkersRepository,
   ) {}
+
+  /**
+   * Progressive-onboarding status: which steps are done and what still blocks
+   * key actions. Clients render checklists from this — the server enforces the
+   * same requirements at action time (accept/post), never trusting the client.
+   */
+  @Get('onboarding')
+  async onboarding(@CurrentUser() user: RequestUser) {
+    const [customerProfile, workerProfile, agreements] = await Promise.all([
+      this.customers.findProfile(user.id),
+      this.workers.findProfile(user.id),
+      this.workers.getAgreements(user.id),
+    ]);
+    const [skillIds, categoryIds, availability, hasHome] = workerProfile
+      ? await Promise.all([
+          this.workers.getSkillIds(user.id),
+          this.workers.getCategoryIds(user.id),
+          this.workers.getAvailability(user.id),
+          this.workers.hasHomeLocation(user.id),
+        ])
+      : [[], [], null, false];
+
+    return {
+      email_verified: user.emailVerified,
+      phone_verified: user.phoneVerified,
+      customer: user.roles.includes('CUSTOMER')
+        ? { profile_created: customerProfile !== null }
+        : null,
+      worker: user.roles.includes('WORKER')
+        ? {
+            profile_created: workerProfile !== null,
+            home_location_set: hasHome,
+            skills_selected: skillIds.length > 0,
+            categories_selected: categoryIds.length > 0,
+            availability_configured: (availability?.windows.length ?? 0) > 0 || (availability?.available_now ?? false),
+            terms_accepted: agreements.some((a) => a.agreement === 'TERMS_OF_SERVICE'),
+            safety_acknowledged: agreements.some((a) => a.agreement === 'WORKER_SAFETY'),
+            // Real payout status arrives with the payments phase — until then
+            // this is honestly false, never faked.
+            payout_ready: false,
+          }
+        : null,
+    };
+  }
 
   @Get()
   async me(@CurrentUser() user: RequestUser) {

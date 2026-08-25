@@ -6,6 +6,10 @@ import { HealthController } from './health/health.controller';
 import { DatabaseModule } from './database/database.module';
 import { AuthModule } from './modules/auth/auth.module';
 import { UsersModule } from './modules/users/users.module';
+import { CustomersModule } from './modules/customers/customers.module';
+import { WorkersModule } from './modules/workers/workers.module';
+import { CatalogModule } from './modules/catalog/catalog.module';
+import { SettingsModule } from './modules/settings/settings.module';
 import { GlobalExceptionFilter } from './common/http-exception.filter';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
@@ -25,6 +29,10 @@ import { DomainError } from './common/errors';
     ThrottlerModule.forRoot([{ name: 'default', ttl: 5 * 60 * 1000, limit: 600 }]),
     AuthModule,
     UsersModule,
+    CustomersModule,
+    WorkersModule,
+    CatalogModule,
+    SettingsModule,
   ],
   controllers: [HealthController],
   providers: [

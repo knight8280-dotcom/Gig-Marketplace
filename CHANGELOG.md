@@ -4,6 +4,19 @@ All notable changes to this project are documented here. Format loosely follows 
 
 ## [Unreleased]
 
+### Phases 2–4 — Customer onboarding, worker onboarding, skills/categories/availability (2026-08-25)
+
+**Added**
+- Schema: `customer_profiles`, `worker_profiles` (private PostGIS home base + GiST index, availability toggle, reserved `available_until`), `saved_addresses` (geocoded, soft-delete), `agreement_acceptances` (versioned terms records), `skills`, `categories` (default-disabled with per-category verification requirements), `worker_skills`, `worker_categories`, `worker_availability` (weekly windows with timezone), `platform_settings`, `restricted_terms` (BLOCK/REVIEW screening patterns), `platform_fees` (bps + fixed, per-category, effective windows).
+- Customers module: profile upsert, saved-address CRUD with ownership enforced in SQL.
+- Workers module: full profile (bio, transportation, equipment, languages, service radius, min pay), skills/categories selection (enabled-only validation), availability windows + available-now toggle, agreement acceptance records.
+- Catalog module: public `GET /v1/categories` + `/v1/skills` (enabled/active only); admin category/skill management (audited).
+- Settings module: configurable platform settings service with code defaults (auto-confirm window, cancellation policy, matching batches, rating blind window, discovery limits) + audited admin endpoints.
+- `GET /v1/users/:id/public`: minimal public card (shortened name, ratings, real verification badges — never email/phone/location).
+- `GET /v1/me/onboarding`: honest progressive-onboarding status (payout_ready is false until payments exist — never faked).
+- Idempotent dev seeds: 10 categories, 10 skills, 11 restricted-term patterns, default 15% fee config, documented `@example.test` accounts; refuses to run in production.
+- 10 new integration tests: catalog visibility, admin authorization, profile permission separation (worker cannot write customer profile), saved-address IDOR, home-location leak checks, disabled-category rejection, availability validation, onboarding truthfulness, settings audit trail.
+
 ### Phase 1 — Authentication + users (2026-08-25)
 
 **Added**

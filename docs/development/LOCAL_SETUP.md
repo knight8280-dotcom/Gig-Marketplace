@@ -52,7 +52,15 @@ pnpm --filter @gig/api migrate     # run database migrations
 pnpm --filter @gig/api seed        # load development seed data (clearly fake)
 ```
 
-Seed data will include documented test accounts (fake emails under `@example.test`, Stripe test-mode records). Real personal information is never used in seeds.
+Seed data is idempotent, clearly fake, and refuses to run in production. Development accounts (password `devpassword123` for all):
+
+| Email | Roles | Notes |
+|---|---|---|
+| `admin@example.test` | ADMIN | platform settings, categories, review queues |
+| `customer@example.test` | CUSTOMER | seeded customer profile |
+| `worker@example.test` | WORKER | seeded worker profile, skills, categories (Austin, TX area home base) |
+
+Real personal information is never used in seeds.
 
 ## 5. Run the backend
 
