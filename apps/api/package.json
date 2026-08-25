@@ -10,6 +10,7 @@
     "start": "node dist/main.js",
     "migrate": "ts-node --transpile-only src/database/migrate-cli.ts",
     "seed": "ts-node --transpile-only src/database/seed-cli.ts",
+    "verify:providers": "ts-node --transpile-only src/tools/verify-providers.ts",
     "test": "jest --runInBand"
   },
   "dependencies": {
