@@ -1,8 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Image, StyleSheet, View, type StyleProp, type ImageStyle } from 'react-native';
-import { getTokens } from '@/api/client';
-
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
+import { apiBaseUrl, getTokens } from '@/api/client';
 
 /**
  * Renders an access-controlled file (GET /v1/files/:id/content) by fetching it
@@ -15,8 +13,9 @@ export function AuthedImage({ fileId, style }: { fileId: string; style?: StylePr
     let cancelled = false;
     (async () => {
       try {
+        if (!apiBaseUrl) return; // No backend in this build; show the placeholder.
         const { access } = await getTokens();
-        const res = await fetch(`${BASE_URL}/v1/files/${fileId}/content`, {
+        const res = await fetch(`${apiBaseUrl}/v1/files/${fileId}/content`, {
           headers: access ? { authorization: `Bearer ${access}` } : {},
         });
         if (!res.ok) return;

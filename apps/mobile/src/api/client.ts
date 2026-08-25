@@ -5,7 +5,44 @@ import * as SecureStore from 'expo-secure-store';
  * API client with bearer auth and refresh-token rotation.
  * The backend is authoritative for everything; this client only transports.
  */
-const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
+/**
+ * Backend origin, inlined at build time.
+ *
+ * An unset GitHub Actions variable expands to an empty string rather than
+ * being absent, so `??` alone would leave BASE_URL as '' and send every
+ * request to a relative path on the web origin — which returns the SPA's
+ * 404.html and fails as an opaque parse error. Treat blank as unconfigured.
+ */
+// Read the bare expression: Expo substitutes `process.env.EXPO_PUBLIC_*` at
+// build time by matching it literally, and anything fancier (optional
+// chaining, destructuring) is left alone and evaluates to undefined.
+const RAW_API_URL = process.env.EXPO_PUBLIC_API_URL;
+const CONFIGURED_API_URL =
+  typeof RAW_API_URL === 'string' && RAW_API_URL.trim() !== ''
+    ? RAW_API_URL.trim().replace(/\/+$/, '')
+    : undefined;
+
+/** Only development falls back to a local server; a deployed build has none. */
+const BASE_URL = CONFIGURED_API_URL ?? (__DEV__ ? 'http://localhost:3000' : undefined);
+
+/** False when the build has no backend — the UI says so instead of guessing. */
+export const apiConfigured = BASE_URL !== undefined;
+
+/** Resolved backend origin, or undefined when this build has no backend. */
+export const apiBaseUrl = BASE_URL;
+
+export const API_NOT_CONFIGURED = 'API_NOT_CONFIGURED';
+
+function requireBaseUrl(): string {
+  if (BASE_URL === undefined) {
+    throw new ApiError(
+      0,
+      API_NOT_CONFIGURED,
+      'This site is not connected to a server yet, so accounts and jobs are unavailable.',
+    );
+  }
+  return BASE_URL;
+}
 
 const ACCESS_KEY = 'gig.access_token';
 const REFRESH_KEY = 'gig.refresh_token';
@@ -64,7 +101,7 @@ async function tryRefresh(): Promise<boolean> {
     refreshPromise = (async () => {
       const { refresh } = await getTokens();
       if (!refresh) return false;
-      const res = await fetch(`${BASE_URL}/v1/auth/refresh`, {
+      const res = await fetch(`${requireBaseUrl()}/v1/auth/refresh`, {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ refresh_token: refresh }),
@@ -98,7 +135,7 @@ export async function uploadImage(
     // Native picker returns file URIs; React Native FormData takes descriptors.
     form.append('file', { uri: assetUri, name: 'photo.jpg', type: 'image/jpeg' } as unknown as Blob);
   }
-  const res = await fetch(`${BASE_URL}/v1/files?kind=${kind}`, {
+  const res = await fetch(`${requireBaseUrl()}/v1/files?kind=${kind}`, {
     method: 'POST',
     headers: access ? { authorization: `Bearer ${access}` } : {},
     body: form,
@@ -122,7 +159,7 @@ export async function api<T>(
       const { access } = await getTokens();
       if (access) headers.authorization = `Bearer ${access}`;
     }
-    return fetch(`${BASE_URL}/v1${path}`, {
+    return fetch(`${requireBaseUrl()}/v1${path}`, {
       method,
       headers,
       body: body === undefined ? undefined : JSON.stringify(body),

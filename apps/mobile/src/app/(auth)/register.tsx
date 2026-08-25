@@ -3,6 +3,7 @@ import { KeyboardAvoidingView, Platform, Pressable, StyleSheet, View } from 'rea
 import { router } from 'expo-router';
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
+import { BackendNotice } from '@/components/backend-notice';
 import { Field, FormError } from '@/components/form';
 import { PrimaryButton } from '@/components/primary-button';
 import { useAuth } from '@/state/auth';
@@ -33,6 +34,7 @@ export default function Register() {
     <ThemedView style={styles.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.form}>
         <ThemedText type="subtitle">Create account</ThemedText>
+        <BackendNotice />
 
         <View style={styles.roleRow} accessibilityRole="radiogroup">
           {(
