@@ -1,0 +1,16 @@
+{
+  "name": "gig-marketplace",
+  "private": true,
+  "version": "0.0.0",
+  "description": "Local Gig Marketplace — two-sided on-demand marketplace for local labor (Phase 0 scaffold)",
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@10.33.3",
+  "scripts": {
+    "typecheck": "pnpm -r --if-present typecheck",
+    "lint": "pnpm -r --if-present lint",
+    "test": "pnpm -r --if-present test",
+    "build": "pnpm -r --if-present build"
+  }
+}
