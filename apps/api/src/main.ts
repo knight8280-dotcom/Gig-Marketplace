@@ -8,7 +8,8 @@ import { AppModule } from './app.module';
  * docs/development/ROADMAP.md.
  */
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule);
+  // rawBody is required for Stripe webhook signature verification.
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   app.setGlobalPrefix('v1', { exclude: ['healthz', 'readyz'] });
 
   const port = Number(process.env.PORT ?? 3000);

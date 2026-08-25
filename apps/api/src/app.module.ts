@@ -12,8 +12,14 @@ import { CatalogModule } from './modules/catalog/catalog.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { JobsModule } from './modules/jobs/jobs.module';
 import { MatchingModule } from './modules/matching/matching.module';
+import { EventEmitterModule } from '@nestjs/event-emitter';
 import { MessagingModule } from './modules/messaging/messaging.module';
 import { RatingsModule } from './modules/ratings/ratings.module';
+import { PaymentsModule } from './modules/payments/payments.module';
+import { DisputesModule } from './modules/disputes/disputes.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { ReportsModule } from './modules/reports/reports.module';
+import { AdminModule } from './modules/admin/admin.module';
 import { GlobalExceptionFilter } from './common/http-exception.filter';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
@@ -37,10 +43,16 @@ import { DomainError } from './common/errors';
     WorkersModule,
     CatalogModule,
     SettingsModule,
+    EventEmitterModule.forRoot(),
     JobsModule,
     MatchingModule,
     MessagingModule,
     RatingsModule,
+    PaymentsModule,
+    DisputesModule,
+    NotificationsModule,
+    ReportsModule,
+    AdminModule,
   ],
   controllers: [HealthController],
   providers: [

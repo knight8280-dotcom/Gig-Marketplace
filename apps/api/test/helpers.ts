@@ -4,6 +4,8 @@ import { Test } from '@nestjs/testing';
 import { AppModule } from '../src/app.module';
 import { DatabaseService } from '../src/database/database.service';
 import { EMAIL_SENDER, SMS_SENDER } from '../src/modules/auth/adapters/messaging.adapters';
+import { STRIPE_GATEWAY } from '../src/modules/payments/stripe.gateway';
+import { FakeStripeGateway } from './fake-stripe.gateway';
 
 export interface CapturedMessage {
   to: string;
@@ -16,12 +18,14 @@ export interface TestContext {
   db: DatabaseService;
   sentEmails: CapturedMessage[];
   sentSms: CapturedMessage[];
+  stripe: FakeStripeGateway;
 }
 
-/** Boots the real AppModule with capturing test doubles for outbound email/SMS. */
+/** Boots the real AppModule with test doubles for outbound email/SMS/Stripe. */
 export async function createTestApp(): Promise<TestContext> {
   const sentEmails: CapturedMessage[] = [];
   const sentSms: CapturedMessage[] = [];
+  const stripe = new FakeStripeGateway();
 
   const moduleRef = await Test.createTestingModule({ imports: [AppModule] })
     .overrideProvider(EMAIL_SENDER)
@@ -36,12 +40,19 @@ export async function createTestApp(): Promise<TestContext> {
         sentSms.push({ to, body });
       },
     })
+    .overrideProvider(STRIPE_GATEWAY)
+    .useValue(stripe)
     .compile();
 
-  const app = moduleRef.createNestApplication();
+  const app = moduleRef.createNestApplication({ rawBody: true });
   app.setGlobalPrefix('v1', { exclude: ['healthz', 'readyz'] });
   await app.init();
-  return { app, db: app.get(DatabaseService), sentEmails, sentSms };
+  return { app, db: app.get(DatabaseService), sentEmails, sentSms, stripe };
+}
+
+/** Wait until in-process async event listeners (payments etc.) settle. */
+export function settleEvents(ms = 150): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 /** Extract the opaque token from a dev-adapter message body ("...: <token>"). */

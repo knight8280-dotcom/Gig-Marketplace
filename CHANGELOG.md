@@ -4,6 +4,20 @@ All notable changes to this project are documented here. Format loosely follows 
 
 ## [Unreleased]
 
+### Phases 10, 12–15 (+16 foundations) — Payments, cancellations, disputes, notifications, admin (2026-08-25)
+
+**Added**
+- Schema: `payment_customers`, `payout_accounts` (Connect Express status mirror), `payments` (full customer-side ledger with fee snapshots + fee-config references, unique PaymentIntent/idempotency keys), `payouts` (unique per assignment+kind — double payouts structurally impossible), append-only `stripe_events` webhook inbox, `disputes` + `dispute_evidence`, `reports`, `notifications` + `notification_preferences` + `device_tokens`.
+- Stripe gateway abstraction (ADR-004): real SDK implementation (Express accounts, hosted onboarding links, off-session PaymentIntents, refunds, transfers, signature-verified webhooks) behind an interface; deterministic fake for automated tests only. Gateway idempotency keys derive from ledger row ids.
+- Payments module: SetupIntent card flow with ownership verification; charge-at-fill (P-1 default) with honest FAILED states + customer retry endpoint; confirm-triggered per-assignment transfers (net of configurable fee); refunds + worker callout compensation per cancellation policy; fixed-amount dispute refunds; insert-then-process idempotent webhooks; earnings summary that never conflates pending/in-transit/paid; payouts blocked without a successful charge (no fake payouts) and while disputed.
+- Cancellation policy engine (Phase 12): centralized, settings-driven consequences (free window, late-fee bps, en-route callout compensation, safety cancellations penalty-free), consequence preview endpoint, outcomes recorded in job events and executed by payments.
+- Disputes module (Phase 13): party-scoped dispute opening moves jobs to DISPUTED (pausing payouts), text evidence + auto-attached description, admin evidence view (timeline + payments + messages), audited resolutions (RELEASE / REFUND_FULL / REFUND_PARTIAL / OTHER) that execute money and close the job.
+- Notifications module (Phase 14): in-app notification records with preference checks (marketing opt-out honored; transactional always recorded), unread counts, device-token registration; domain-event listeners cover acceptance, lifecycle, cancellations, messages, payments, payouts, disputes. Push delivery is a labeled dev adapter until the mobile app lands.
+- Reports module (Phase 16 foundations): safety/behavior/fraud reports, automatic report on safety cancellations, admin review with audit.
+- Admin module (Phase 15): live KPI overview (supply/demand, jobs, GMV/revenue/refunds, disputes/reports, 30-day fill rate + time-to-fill), user search/detail/suspend/restore (audited, sessions revoked), job investigation (timeline + payments), payment/payout viewers, audit-log viewer.
+- In-process domain event bus (post-commit) wiring jobs → payments/notifications/reports; listeners are idempotent so a later move to queue transport is a transport change only.
+- 10 new integration tests: golden money flow with exact fee math, double-release protection, charge failure + retry, policy refunds (75/25 split), dispute pause + admin release + audit, webhook signature + duplicate no-op, missing-payout-account recovery, admin metrics, suspension with immediate session death, foreign payment-method rejection.
+
 ### Phases 9 & 11 — Messaging and ratings (2026-08-25)
 
 **Added**

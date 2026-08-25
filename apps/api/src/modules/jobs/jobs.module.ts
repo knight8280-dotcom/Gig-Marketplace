@@ -4,6 +4,7 @@ import { JobsService } from './jobs.service';
 import { JobStateMachine } from './job-state-machine';
 import { JobChangesService } from './job-changes.service';
 import { DiscoveryService } from './discovery.service';
+import { CancellationPolicyService } from './cancellation-policy.service';
 import { JobChangesController, JobsAdminController, JobsController } from './jobs.controller';
 import { AssignmentsController } from './assignments.controller';
 import { CatalogModule } from '../catalog/catalog.module';
@@ -11,7 +12,14 @@ import { CatalogModule } from '../catalog/catalog.module';
 @Module({
   imports: [CatalogModule],
   controllers: [JobsController, JobChangesController, JobsAdminController, AssignmentsController],
-  providers: [JobsRepository, JobsService, JobStateMachine, JobChangesService, DiscoveryService],
+  providers: [
+    JobsRepository,
+    JobsService,
+    JobStateMachine,
+    JobChangesService,
+    DiscoveryService,
+    CancellationPolicyService,
+  ],
   exports: [JobsRepository, JobsService, JobStateMachine],
 })
 export class JobsModule {}

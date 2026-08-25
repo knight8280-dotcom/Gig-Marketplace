@@ -488,7 +488,11 @@ describe('Marketplace core (Phases 5–8)', () => {
       .get(`/v1/jobs/${job.body.id}/timeline`)
       .set('Authorization', `Bearer ${customer.token}`)
       .expect(200);
-    const types = timeline.body.items.map((e: { event_type: string }) => e.event_type);
+    // Payment events (payment.failed here — this suite's customer has no card
+    // on file) are asserted in the payments suite; filter to lifecycle events.
+    const types = timeline.body.items
+      .map((e: { event_type: string }) => e.event_type)
+      .filter((t: string) => !t.startsWith('payment.') && !t.startsWith('payout.'));
     expect(types).toEqual([
       'job.created',
       'job.matching_started',

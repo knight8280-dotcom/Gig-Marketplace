@@ -90,7 +90,7 @@ Every refund/adjustment is a `payments` ledger row (kind `REFUND`/`ADJUSTMENT`) 
 
 | # | Question | Default until decided |
 |---|---|---|
-| P-1 | **Charge timing**: charge at fill vs authorize-then-capture vs charge at job start. Card auth holds expire (~7 days), so far-future scheduled jobs cannot hold an auth until start. | Charge at fill for jobs starting ≤ X days out; for far-future jobs, charge at T-24h before start (config) |
+| P-1 | **Charge timing**: charge at fill vs authorize-then-capture vs charge at job start. Card auth holds expire (~7 days), so far-future scheduled jobs cannot hold an auth until start. | **Implemented MVP behavior: charge at fill** (off-session PaymentIntent on the saved default card when the job reaches FILLED; failed charges notify the customer and are retriable via `POST /jobs/:id/retry-payment`). Deferred-charge scheduling for far-future jobs remains open |
 | P-2 | Hourly jobs: charge estimate then adjust, or charge actuals at completion? Overtime requires customer approval (scope-change flow) | Charge estimate at fill; customer-approved additional time charged as incremental payment |
 | P-3 | Launch platform fee level (config value, not code) | Placeholder 15% + $0 fixed in seed config — pure config, changeable anytime |
 | P-4 | Who absorbs processor fees (platform vs surfaced to customer) | Platform absorbs from platform fee |

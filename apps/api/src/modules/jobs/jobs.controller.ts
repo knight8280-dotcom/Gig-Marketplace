@@ -78,6 +78,11 @@ export class JobsController {
     return this.service.fullJobView(await this.service.duplicateJob(user, id));
   }
 
+  @Get(':id/cancellation-preview')
+  cancellationPreview(@CurrentUser() user: RequestUser, @Param('id', ParseUUIDPipe) id: string) {
+    return this.service.cancellationPreview(user, id);
+  }
+
   @RequirePermissions('job:create')
   @HttpCode(200)
   @Post(':id/cancel')

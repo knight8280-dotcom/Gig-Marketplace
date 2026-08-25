@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import { DatabaseService } from '../../database/database.service';
 import { DomainError } from '../../common/errors';
 import { RequestUser } from '../../common/auth.decorators';
@@ -21,6 +22,7 @@ export class MessagingService {
   constructor(
     private readonly db: DatabaseService,
     private readonly jobs: JobsRepository,
+    private readonly events: EventEmitter2,
   ) {}
 
   /** A conversation exists per job per customer↔worker pair, opened at/after acceptance. */
@@ -113,6 +115,11 @@ export class MessagingService {
        RETURNING id, seq, sender_user_id, body, created_at, read_at`,
       [conversation.id, user.id, body],
     );
+    this.events.emit('message.sent', {
+      recipientUserId: other,
+      jobId: conversation.job_id,
+      preview: body,
+    });
     return rows[0]!;
   }
 

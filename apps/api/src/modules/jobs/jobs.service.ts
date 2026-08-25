@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { EventEmitter2 } from '@nestjs/event-emitter';
 import type { PoolClient } from 'pg';
 import type { AssignmentState, JobState } from '@gig/shared';
 import { DatabaseService } from '../../database/database.service';
@@ -6,6 +7,7 @@ import { DomainError } from '../../common/errors';
 import { RequestUser } from '../../common/auth.decorators';
 import { CatalogRepository } from '../catalog/catalog.repository';
 import { JobStateMachine } from './job-state-machine';
+import { CancellationPolicyService } from './cancellation-policy.service';
 import {
   ACTIVE_ASSIGNMENT_STATES,
   AssignmentRow,
@@ -23,6 +25,8 @@ export class JobsService {
     private readonly jobs: JobsRepository,
     private readonly catalog: CatalogRepository,
     private readonly fsm: JobStateMachine,
+    private readonly policy: CancellationPolicyService,
+    private readonly events: EventEmitter2,
   ) {}
 
   // ── Creation / posting ─────────────────────────────────────────────────────
@@ -196,6 +200,17 @@ export class JobsService {
       );
     }
 
+    const result = await this.acceptJobTx(worker, jobId);
+    // Post-commit domain events (charging, notifications) — never inside the tx.
+    this.events.emit('job.worker_accepted', { jobId, workerUserId: worker.id });
+    if (result.filled) this.events.emit('job.filled', { jobId });
+    return result.assignment;
+  }
+
+  private async acceptJobTx(
+    worker: RequestUser,
+    jobId: string,
+  ): Promise<{ assignment: AssignmentRow; filled: boolean }> {
     return this.db.withTransaction(async (client) => {
       const job = await this.jobs.lockJob(client, jobId);
       if (!job) throw DomainError.notFound('Job not found');
@@ -206,7 +221,9 @@ export class JobsService {
       // Idempotent retry: an existing active assignment is returned as-is.
       const existing = await this.jobs.findAssignment(jobId, worker.id, client);
       if (existing) {
-        if ((ACTIVE_ASSIGNMENT_STATES as readonly string[]).includes(existing.state)) return existing;
+        if ((ACTIVE_ASSIGNMENT_STATES as readonly string[]).includes(existing.state)) {
+          return { assignment: existing, filled: false };
+        }
         throw DomainError.conflict('You previously left this job and cannot re-accept it');
       }
 
@@ -258,12 +275,13 @@ export class JobsService {
         await this.fsm.transitionJob(client, jobId, 'POSTED', 'MATCHING', null, 'job.matching_started');
         state = 'MATCHING';
       }
-      if (filled >= job.workers_needed) {
+      const isFilled = filled >= job.workers_needed;
+      if (isFilled) {
         await this.fsm.transitionJob(client, jobId, state, 'FILLED', null, 'job.filled');
       } else if (state === 'MATCHING') {
         await this.fsm.transitionJob(client, jobId, 'MATCHING', 'PARTIALLY_FILLED', null, 'job.partially_filled');
       }
-      return assignment;
+      return { assignment, filled: isFilled };
     });
   }
 
@@ -325,7 +343,7 @@ export class JobsService {
       STARTED: 'assignment.started',
       COMPLETED: 'assignment.completed',
     };
-    return this.db.withTransaction(async (client) => {
+    const result = await this.db.withTransaction(async (client) => {
       const assignment = await this.jobs.findAssignmentById(assignmentId, client);
       if (!assignment || assignment.worker_user_id !== worker.id) {
         throw DomainError.notFound('Assignment not found');
@@ -376,6 +394,10 @@ export class JobsService {
       }
       return (await this.jobs.findAssignmentById(assignmentId, client))!;
     });
+    if (result.state === to) {
+      this.events.emit('assignment.transition', { jobId: result.job_id, assignmentId, to });
+    }
+    return result;
   }
 
   /** MVP earnings: FLAT = pay per worker; HOURLY = rate × estimated duration.
@@ -391,9 +413,9 @@ export class JobsService {
   }
 
   async confirmCompletion(customer: RequestUser, jobId: string): Promise<JobRow> {
-    return this.db.withTransaction(async (client) => {
-      const job = await this.mustOwnJob(client, customer, jobId, true);
-      if (job.state !== 'COMPLETION_PENDING') {
+    const job = await this.db.withTransaction(async (client) => {
+      const locked = await this.mustOwnJob(client, customer, jobId, true);
+      if (locked.state !== 'COMPLETION_PENDING') {
         throw DomainError.conflict('This job is not awaiting completion confirmation');
       }
       await this.fsm.transitionJob(
@@ -404,9 +426,19 @@ export class JobsService {
         customer.id,
         'job.completion_confirmed',
       );
-      // Payment initiation hooks in at the payments phase (job → PAYMENT_PENDING).
       return (await this.jobs.findById(jobId, client))!;
     });
+    // Post-commit: payments module releases payouts; notifications fan out.
+    this.events.emit('job.completion_confirmed', { jobId });
+    return job;
+  }
+
+  /** Consequences preview — shown before the customer confirms cancellation. */
+  async cancellationPreview(customer: RequestUser, jobId: string) {
+    const job = await this.jobs.findById(jobId);
+    if (!job || job.customer_user_id !== customer.id) throw DomainError.notFound('Job not found');
+    const assignments = await this.jobs.listAssignmentsForJob(jobId);
+    return this.policy.forCustomerCancellation(job, assignments);
   }
 
   // ── Cancellations (policy fees arrive with the payments phase) ────────────
@@ -415,7 +447,7 @@ export class JobsService {
     if (!dto.acknowledged_consequences) {
       throw new DomainError('CANCELLATION_NOT_ACKNOWLEDGED', 'Consequences must be acknowledged', 422);
     }
-    return this.db.withTransaction(async (client) => {
+    const { cancelled, outcome } = await this.db.withTransaction(async (client) => {
       const job = await this.mustOwnJob(client, customer, jobId, true);
       const cancellable: JobState[] = [
         'DRAFT', 'PENDING_REVIEW', 'POSTED', 'MATCHING', 'PARTIALLY_FILLED', 'FILLED', 'IN_PROGRESS',
@@ -424,6 +456,7 @@ export class JobsService {
         throw DomainError.conflict(`A job in state ${job.state} cannot be cancelled`);
       }
       const assignments = await this.jobs.listAssignmentsForJob(jobId, client);
+      const policyOutcome = await this.policy.forCustomerCancellation(job, assignments);
       for (const a of assignments) {
         if ((ACTIVE_ASSIGNMENT_STATES as readonly string[]).includes(a.state)) {
           await this.fsm.transitionAssignment(
@@ -435,13 +468,17 @@ export class JobsService {
       await this.fsm.transitionJob(client, jobId, job.state, 'CANCELLED', customer.id, 'job.cancelled', {
         reason: dto.reason,
         cancelled_by: 'CUSTOMER',
+        policy_outcome: policyOutcome as unknown as Record<string, unknown>,
       });
-      return (await this.jobs.findById(jobId, client))!;
+      return { cancelled: (await this.jobs.findById(jobId, client))!, outcome: policyOutcome };
     });
+    // Post-commit: payments executes refunds/compensation; notifications fan out.
+    this.events.emit('job.cancelled', { jobId, cancelledBy: 'CUSTOMER', outcome });
+    return cancelled;
   }
 
   async cancelAssignment(worker: RequestUser, assignmentId: string, dto: CancelAssignmentDto): Promise<void> {
-    await this.db.withTransaction(async (client) => {
+    const emitted = await this.db.withTransaction(async (client) => {
       const assignment = await this.jobs.findAssignmentById(assignmentId, client);
       if (!assignment || assignment.worker_user_id !== worker.id) {
         throw DomainError.notFound('Assignment not found');
@@ -451,9 +488,11 @@ export class JobsService {
       if (!(ACTIVE_ASSIGNMENT_STATES as readonly string[]).includes(assignment.state)) {
         throw DomainError.conflict('This assignment is not active');
       }
+      const consequence = await this.policy.forWorkerCancellation(assignment, dto.reason);
       await this.fsm.transitionAssignment(
         client, assignmentId, job.id, assignment.state, 'CANCELLED_BY_WORKER', worker.id,
-        'assignment.cancelled_by_worker', { reason: dto.reason, detail: dto.detail ?? null },
+        'assignment.cancelled_by_worker',
+        { reason: dto.reason, detail: dto.detail ?? null, consequence: consequence as unknown as Record<string, unknown> },
       );
       await client.query(
         'UPDATE jobs SET workers_filled = workers_filled - 1, updated_at = now() WHERE id = $1',
@@ -469,6 +508,13 @@ export class JobsService {
       } else if (job.state === 'PARTIALLY_FILLED') {
         await this.fsm.transitionJob(client, job.id, 'PARTIALLY_FILLED', 'MATCHING', null, 'job.slot_reopened');
       }
+      return { jobId: job.id, customerUserId: job.customer_user_id, safety: dto.reason === 'SAFETY' };
+    });
+    this.events.emit('assignment.cancelled_by_worker', {
+      jobId: emitted.jobId,
+      customerUserId: emitted.customerUserId,
+      workerUserId: worker.id,
+      safety: emitted.safety,
     });
   }
 
