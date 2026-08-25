@@ -42,6 +42,12 @@ jobs:
       - name: Configure Pages
         id: pages
         uses: actions/configure-pages@v5
+        with:
+          # Turn Pages on via the API rather than requiring someone to set it
+          # in repository settings first. Publishing Pages from a private
+          # repository still needs GitHub Pro/Team/Enterprise — on a free plan
+          # this step fails until the repository is made public.
+          enablement: true
 
       - name: Build web export
         env:
