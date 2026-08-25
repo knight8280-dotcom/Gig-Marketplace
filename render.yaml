@@ -1,0 +1,97 @@
+# Render Blueprint — Local Gig Marketplace pilot deployment.
+# Deploy: https://dashboard.render.com/blueprint/new?repo=https://github.com/knight8280-dotcom/Gig-Marketplace
+#
+# Free-plan pilot notes (upgrade in the dashboard when ready):
+#  - Free web services spin down after 15 min idle (first request ~1 min cold start).
+#  - Free Postgres expires after 30 days — upgrade to basic_256mb before then.
+#  - The filesystem is ephemeral: uploaded photos are lost on deploy/restart
+#    until object storage (or a paid instance + disk) is added.
+#
+# Secrets marked `sync: false` are entered once in the dashboard on first
+# deploy: Stripe TEST keys (sk_test/pk_test — flip to live keys only after
+# Connect is enabled and the legal gate is cleared), Twilio API key + secret,
+# bootstrap admin credentials, and (after first deploy) the Stripe webhook
+# signing secret.
+
+previews:
+  generation: off
+
+databases:
+  - name: gig-marketplace-db
+    plan: free
+    databaseName: gig
+    user: gig
+    region: oregon
+
+services:
+  # ── API (NestJS modular monolith) ──────────────────────────────────────────
+  - type: web
+    name: gig-marketplace-api
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @gig/shared build && pnpm --filter @gig/api build
+    # Migrations + idempotent bootstrap (platform fee, first admin) run before boot.
+    startCommand: node apps/api/dist/database/migrate-cli.js && node apps/api/dist/database/bootstrap-cli.js && node apps/api/dist/main.js
+    healthCheckPath: /healthz
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: gig-marketplace-db
+          property: connectionString
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: STRIPE_SECRET_KEY
+        sync: false # sk_test_… for the pilot; live only after Connect + legal gate
+      - key: STRIPE_PUBLISHABLE_KEY
+        sync: false # pk_test_… matching the secret key's mode
+      - key: STRIPE_WEBHOOK_SECRET
+        sync: false # whsec_… — create the webhook endpoint after first deploy
+      - key: SMS_PROVIDER
+        value: twilio
+      - key: TWILIO_API_KEY_SID
+        sync: false # SK…
+      - key: TWILIO_API_KEY_SECRET
+        sync: false
+      - key: EMAIL_PROVIDER
+        value: console # swap to smtp + SMTP_URL when an email provider is chosen
+      - key: GEOCODER_PROVIDER
+        value: nominatim
+      - key: CORS_ORIGINS
+        value: https://gig-marketplace-admin.onrender.com,https://gig-marketplace-web.onrender.com
+      - key: UPLOADS_DIR
+        value: /tmp/gig-uploads # EPHEMERAL — replace with object storage before real usage
+      - key: BOOTSTRAP_ADMIN_EMAIL
+        sync: false
+      - key: BOOTSTRAP_ADMIN_PASSWORD
+        sync: false # min 12 chars; enroll TOTP 2FA right after first login
+
+  # ── Admin dashboard (Next.js) ───────────────────────────────────────────────
+  - type: web
+    name: gig-marketplace-admin
+    runtime: node
+    plan: free
+    region: oregon
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @gig/admin build
+    startCommand: pnpm --filter @gig/admin start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: NEXT_PUBLIC_API_URL
+        value: https://gig-marketplace-api.onrender.com
+
+  # ── Customer/worker web app (Expo web export, static) ──────────────────────
+  - type: web
+    name: gig-marketplace-web
+    runtime: static
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && cd apps/mobile && npx expo export --platform web
+    staticPublishPath: apps/mobile/dist
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
+    envVars:
+      - key: EXPO_PUBLIC_API_URL
+        value: https://gig-marketplace-api.onrender.com
