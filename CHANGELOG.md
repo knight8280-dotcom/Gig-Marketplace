@@ -4,6 +4,16 @@ All notable changes to this project are documented here. Format loosely follows 
 
 ## [Unreleased]
 
+### Mobile app — core screens (2026-08-25)
+
+**Added**
+- Expo app generated with the official scaffolder (SDK 57, React Native 0.86, expo-router 57 — real current versions, not guessed).
+- Secure auth: expo-secure-store token storage, automatic refresh-token rotation, welcome/register (role choice)/login screens.
+- Role-aware navigation with dual-role mode switch: worker tabs (Home with availability toggle + GPS nearby jobs + today's earnings, Jobs, Messages, Activity, Profile) and customer tabs (Home with post CTA + active jobs, My Jobs, Messages, Activity, Profile).
+- Post-a-job guided form (API categories, ASAP/scheduled, flat/hourly, device-location pin with labeled Coming Soon for map-pin placement).
+- Role-aware job detail: accept, en-route/arrived/start/complete, confirm completion, report a problem, cancel, 1–5★ ratings; job-scoped chat; notification center.
+- Honest-gap README: not yet device-tested; maps, photos, Stripe UI, push delivery pending.
+
 ### Phases 10, 12–15 (+16 foundations) — Payments, cancellations, disputes, notifications, admin (2026-08-25)
 
 **Added**
