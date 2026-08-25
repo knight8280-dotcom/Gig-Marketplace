@@ -13,6 +13,7 @@ import { SettingsModule } from './modules/settings/settings.module';
 import { JobsModule } from './modules/jobs/jobs.module';
 import { MatchingModule } from './modules/matching/matching.module';
 import { EventEmitterModule } from '@nestjs/event-emitter';
+import { ScheduleModule } from '@nestjs/schedule';
 import { MessagingModule } from './modules/messaging/messaging.module';
 import { RatingsModule } from './modules/ratings/ratings.module';
 import { PaymentsModule } from './modules/payments/payments.module';
@@ -44,6 +45,7 @@ import { DomainError } from './common/errors';
     CatalogModule,
     SettingsModule,
     EventEmitterModule.forRoot(),
+    ScheduleModule.forRoot(),
     JobsModule,
     MatchingModule,
     MessagingModule,

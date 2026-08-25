@@ -70,7 +70,7 @@ export class JobsService {
     const asDraft = dto.save_as_draft === true;
     const state: JobState = asDraft ? 'DRAFT' : needsReview ? 'PENDING_REVIEW' : 'POSTED';
 
-    return this.db.withTransaction(async (client) => {
+    const created = await this.db.withTransaction(async (client) => {
       const job = await this.jobs.insertJob(
         client,
         customer.id,
@@ -87,10 +87,14 @@ export class JobsService {
       }
       return job;
     });
+    if (created.state === 'MATCHING') {
+      this.events.emit('job.opened_for_matching', { jobId: created.id });
+    }
+    return created;
   }
 
   async postDraft(customer: RequestUser, jobId: string): Promise<JobRow> {
-    return this.db.withTransaction(async (client) => {
+    const posted = await this.db.withTransaction(async (client) => {
       const job = await this.mustOwnJob(client, customer, jobId);
       if (job.state !== 'DRAFT' && job.state !== 'PENDING_REVIEW') {
         throw DomainError.conflict('Only drafts can be posted');
@@ -126,6 +130,10 @@ export class JobsService {
       }
       return (await this.jobs.findById(jobId, client))!;
     });
+    if (posted.state === 'MATCHING') {
+      this.events.emit('job.opened_for_matching', { jobId });
+    }
+    return posted;
   }
 
   async duplicateJob(customer: RequestUser, jobId: string): Promise<JobRow> {
@@ -163,7 +171,7 @@ export class JobsService {
   // ── Admin review queue ─────────────────────────────────────────────────────
 
   async reviewJob(admin: RequestUser, jobId: string, approve: boolean, reason?: string): Promise<JobRow> {
-    return this.db.withTransaction(async (client) => {
+    const reviewed = await this.db.withTransaction(async (client) => {
       const job = await this.jobs.lockJob(client, jobId);
       if (!job || job.state !== 'PENDING_REVIEW') {
         throw DomainError.notFound('No job awaiting review with this id');
@@ -186,6 +194,10 @@ export class JobsService {
       }
       return (await this.jobs.findById(jobId, client))!;
     });
+    if (reviewed.state === 'MATCHING') {
+      this.events.emit('job.opened_for_matching', { jobId });
+    }
+    return reviewed;
   }
 
   // ── Acceptance (concurrency-critical) ──────────────────────────────────────
@@ -508,7 +520,12 @@ export class JobsService {
       } else if (job.state === 'PARTIALLY_FILLED') {
         await this.fsm.transitionJob(client, job.id, 'PARTIALLY_FILLED', 'MATCHING', null, 'job.slot_reopened');
       }
-      return { jobId: job.id, customerUserId: job.customer_user_id, safety: dto.reason === 'SAFETY' };
+      return {
+        jobId: job.id,
+        customerUserId: job.customer_user_id,
+        safety: dto.reason === 'SAFETY',
+        reopened: job.state === 'FILLED' || job.state === 'PARTIALLY_FILLED',
+      };
     });
     this.events.emit('assignment.cancelled_by_worker', {
       jobId: emitted.jobId,
@@ -516,6 +533,9 @@ export class JobsService {
       workerUserId: worker.id,
       safety: emitted.safety,
     });
+    if (emitted.reopened) {
+      this.events.emit('job.opened_for_matching', { jobId: emitted.jobId });
+    }
   }
 
   // ── Reads with viewer-dependent shaping ────────────────────────────────────

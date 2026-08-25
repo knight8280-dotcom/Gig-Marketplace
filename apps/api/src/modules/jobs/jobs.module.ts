@@ -5,6 +5,7 @@ import { JobStateMachine } from './job-state-machine';
 import { JobChangesService } from './job-changes.service';
 import { DiscoveryService } from './discovery.service';
 import { CancellationPolicyService } from './cancellation-policy.service';
+import { JobsScheduler } from './jobs.scheduler';
 import { JobChangesController, JobsAdminController, JobsController } from './jobs.controller';
 import { AssignmentsController } from './assignments.controller';
 import { CatalogModule } from '../catalog/catalog.module';
@@ -19,6 +20,7 @@ import { CatalogModule } from '../catalog/catalog.module';
     JobChangesService,
     DiscoveryService,
     CancellationPolicyService,
+    JobsScheduler,
   ],
   exports: [JobsRepository, JobsService, JobStateMachine],
 })
