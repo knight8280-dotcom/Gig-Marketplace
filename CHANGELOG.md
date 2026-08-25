@@ -4,6 +4,75 @@ All notable changes to this project are documented here. Format loosely follows 
 
 ## [Unreleased]
 
+### Website launch — landing page, GitHub Pages deploy, green CI (2026-08-25)
+
+**The customer/worker website is live at
+https://knight8280-dotcom.github.io/Gig-Marketplace/.**
+
+**Added**
+- **Public landing page** (web only; the native app still opens on welcome):
+  hero, the seven-step core loop, both audiences, how payment is held and
+  released, trust and safety, example categories, FAQ, and a pilot notice.
+  Claims are limited to shipped behaviour — no insurance (L-3), no background
+  checks (L-4), no worker-classification language (L-1), and no fee percentage
+  while the level is still an open decision (P-3).
+- **Responsive app shell**: `Screen`/`Bounded` cap and centre content on wide
+  viewports, real tab-bar icons, a fuller theme (surfaces, borders, radii,
+  breakpoints), and home screens rebuilt around stat tiles and actionable
+  callouts. Pull-to-refresh preserved where a `FlatList` provided it.
+- **`+html.tsx`**: prerendered head with description and Open Graph tags. The
+  title is owned by `<Head>` because expo-router emits its own `<title>` ahead
+  of anything in the HTML shell, and the first one in a document wins.
+- **GitHub Pages deployment** (`.github/workflows/deploy-pages.yml`), replacing
+  the Render Blueprint. Handles three Pages behaviours that each fail silently:
+  the `/<repo>/` base path (via `app.config.js` → Expo's `experiments.baseUrl`),
+  Jekyll dropping the underscore-prefixed `_expo/static` bundle (`.nojekyll`),
+  and the absence of rewrite rules for dynamic routes (`index.html` → `404.html`).
+- **API container image** (`apps/api/Dockerfile`) and `start:prod`, so a host
+  runs migrations, the idempotent bootstrap, and the server with one command.
+
+**Fixed**
+- **CI had failed on every commit since Phase 1.** The API suite is
+  integration-only against real PostgreSQL + PostGIS (ADR-009) and the workflow
+  had no database; `pnpm typecheck` also ran before `@gig/shared` was built, so
+  `@gig/api` could not resolve its types. Added a `postgis` service container
+  and a shared-package build step. `pnpm build` now also builds the web export,
+  which was never covered — `apps/mobile` had no `build` script.
+- **A deployed build with no backend failed opaquely.** An unset Actions
+  variable expands to an empty string and `??` only catches null/undefined, so
+  the API base URL became `''` and every request hit a relative path answered
+  by the SPA's `404.html`. Blank is now treated as unconfigured: the localhost
+  default is development-only, requests throw `API_NOT_CONFIGURED`, and the
+  auth screens say so rather than accepting a form that cannot succeed.
+- Three `setState`-in-effect errors, a `fontVariant` array, and `Link`-child
+  style arrays that react-native-web rejects at runtime — two of which rendered
+  a blank page.
+- README described the repo as a Phase 0 scaffold with no features implemented.
+
+**Verified**
+- Golden loop driven through the real UI end to end: accept → address revealed
+  → on my way → here → start → complete → confirm → both rating prompts and
+  tips, with the admin dashboard independently reporting the same figures.
+- Deployment rehearsed as GitHub Pages serves it (subpath, real files, 404
+  fallback), then re-verified against the live site's own bytes.
+- API production boot from an empty database: migrations, bootstrap (default
+  platform fee and first admin), a second bootstrap correctly a no-op,
+  `/readyz` healthy, and a missing `STRIPE_SECRET_KEY` warning rather than
+  crashing.
+- Supabase confirmed as a database option on a real free project: `postgis`
+  3.3.7, `citext`, `pgcrypto`, `geography(Point, 4326)` with `GIST`, and
+  `ST_Distance` / `ST_DWithin` / `<->` ordering all behave — so it works as
+  `DATABASE_URL` with no code change.
+
+**Known gaps**
+- The API and admin dashboard are not hosted yet; until `API_URL` is set,
+  everything behind sign-in shows the honest "not connected" notice.
+- Card entry is native-only (`cardEntrySupported = false` on web), so a web
+  customer cannot add a payment method even once the API is up.
+- Uploads still write to local disk and are lost on restart; the S3-compatible
+  adapter interface exists but is not wired.
+
+
 ### Prototype hardening pass — files, 2FA, tips, providers, payment UI (2026-08-25)
 
 **Added**
