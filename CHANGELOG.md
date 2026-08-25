@@ -4,6 +4,21 @@ All notable changes to this project are documented here. Format loosely follows 
 
 ## [Unreleased]
 
+### Phases 5–8 — Job creation, discovery, matching, lifecycle (2026-08-25)
+
+**Added**
+- Schema: `jobs` (exact + deterministic ~150–350 m obfuscated `approx_location`, PostGIS GiST + partial open-state indexes, reserved recurrence columns, overfill CHECK), `job_workers` (per-worker assignments, unique job+worker), `job_events` (append-only with monotonic sequence), `job_changes` + `job_change_approvals`.
+- Job state machine service: single code path for all job/assignment transitions, validated against the shared transition tables, every transition event-logged (ADR-006).
+- Jobs module: guided creation with category/duration/start-time validation, restricted-term screening (BLOCK → rejected; REVIEW → admin queue), drafts + post, duplicate ("Post Again"), customer cancel (assignments cancelled, acknowledgment required), viewer-dependent responses (owner/assigned worker/public shapes; exact address + access instructions only post-acceptance).
+- Discovery: PostGIS `ST_DWithin` nearby search with category/pay/time filters and distance-ordered keyset pagination; map pins (approx only, capped); deterministic pricing suggestion (IQR of completed local jobs, honest null under 5 samples).
+- Matching engine: documented deterministic candidate query (availability, radius, category, min-pay, verification requirements, account standing) ranked by distance with new-worker fairness tiebreak; protected characteristics never inputs.
+- Acceptance: transactional row-locked slot claim; multi-worker partial/full fill transitions; idempotent retries; per-category verification enforcement at accept time; self-accept blocked.
+- Execution lifecycle: en-route → arrived (GPS as evidence) → start → complete per assignment; job aggregates to IN_PROGRESS/COMPLETION_PENDING; customer confirm; earnings computed centrally (flat / hourly×estimate).
+- Scope protection: change proposals with per-worker approvals; unanimous approval applies the diff; full history preserved; declined proposals leave the job untouched.
+- Worker cancellation: slot reopens (FILLED/PARTIALLY_FILLED → MATCHING), reliability counter, no re-accept after leaving.
+- Admin: restricted-job review queue with approve/reject.
+- 15 new integration tests: screening/review flow, draft visibility, location privacy (approx-only + distance bound), radius filtering, matching eligibility/order, verification gating, multi-worker fill, concurrent last-slot race (exactly one winner), full lifecycle with timeline assertion, illegal transitions, assignment IDOR, cancellations both sides, scope changes, duplicate.
+
 ### Phases 2–4 — Customer onboarding, worker onboarding, skills/categories/availability (2026-08-25)
 
 **Added**

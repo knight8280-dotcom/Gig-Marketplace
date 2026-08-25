@@ -51,6 +51,44 @@ export function tokenFromMessage(body: string): string {
   return match[1]!;
 }
 
+let phoneCounter = 1000;
+
+/** Register a user and complete email + phone verification via captured messages. */
+export async function registerVerifiedUser(
+  ctx: TestContext,
+  email: string,
+  role: 'CUSTOMER' | 'WORKER',
+): Promise<{ token: string; userId: string; email: string }> {
+  const request = (await import('supertest')).default;
+  const server = ctx.app.getHttpServer();
+
+  const reg = await request(server)
+    .post('/v1/auth/register')
+    .send({ email, password: 'password-123456', role })
+    .expect(201);
+  const token = reg.body.tokens.access_token as string;
+  const userId = reg.body.user.id as string;
+
+  const emailToken = tokenFromMessage(ctx.sentEmails[ctx.sentEmails.length - 1]!.body);
+  await request(server).post('/v1/auth/verify-email').send({ token: emailToken }).expect(200);
+
+  phoneCounter += 1;
+  const phone = `+1555000${phoneCounter}`;
+  await request(server)
+    .post('/v1/auth/phone/request')
+    .set('Authorization', `Bearer ${token}`)
+    .send({ phone })
+    .expect(204);
+  const code = ctx.sentSms[ctx.sentSms.length - 1]!.body.match(/(\d{6})/)![1]!;
+  await request(server)
+    .post('/v1/auth/phone/confirm')
+    .set('Authorization', `Bearer ${token}`)
+    .send({ phone, code })
+    .expect(200);
+
+  return { token, userId, email };
+}
+
 /** Truncate all data tables between test suites (schema/migrations preserved). */
 export async function truncateAll(db: DatabaseService): Promise<void> {
   const { rows } = await db.query<{ tablename: string }>(

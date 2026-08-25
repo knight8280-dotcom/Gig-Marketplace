@@ -10,6 +10,8 @@ import { CustomersModule } from './modules/customers/customers.module';
 import { WorkersModule } from './modules/workers/workers.module';
 import { CatalogModule } from './modules/catalog/catalog.module';
 import { SettingsModule } from './modules/settings/settings.module';
+import { JobsModule } from './modules/jobs/jobs.module';
+import { MatchingModule } from './modules/matching/matching.module';
 import { GlobalExceptionFilter } from './common/http-exception.filter';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
@@ -33,6 +35,8 @@ import { DomainError } from './common/errors';
     WorkersModule,
     CatalogModule,
     SettingsModule,
+    JobsModule,
+    MatchingModule,
   ],
   controllers: [HealthController],
   providers: [
