@@ -1,0 +1,19 @@
+{
+  "name": "@gig/shared",
+  "version": "0.0.0",
+  "private": true,
+  "description": "Shared domain types, enums, and state machines for the Local Gig Marketplace",
+  "type": "commonjs",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "tsx --test src/*.test.ts"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.3",
+    "@types/node": "^22.15.0",
+    "tsx": "^4.19.0"
+  }
+}
