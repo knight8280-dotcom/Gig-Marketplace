@@ -123,6 +123,20 @@ Per-worker execution states live on the assignment; the job state aggregates ass
 
 ---
 
+## ADR-009: node-postgres + hand-written SQL migrations (no ORM) — ACCEPTED
+
+**Problem.** The data layer needs transactions with row locking (`SELECT … FOR UPDATE`), PostGIS queries, partial/unique indexes, triggers, and append-only grants — exactly the areas where ORMs are weakest — while staying fully type-checked and testable. (Resolves OD-6.)
+
+**Options.** (a) Prisma; (b) Drizzle; (c) TypeORM; (d) node-postgres (`pg`) with parameterized SQL + repository classes + a minimal forward-only SQL migrator.
+
+**Decision.** Option (d). Migrations are numbered `.sql` files in `apps/api/migrations`, applied transactionally by a small migrator recorded in `schema_migrations`; data access lives in repository classes with typed row interfaces and parameterized SQL only.
+
+**Reason.** Every correctness-critical mechanism in this system (concurrency-safe slot claims, PostGIS `ST_DWithin`, append-only enforcement, webhook unique constraints) is plain SQL; an ORM would add an abstraction to bypass rather than a help. Hand-written SQL keeps the schema doc, migrations, and queries in one reviewable language. Integration tests run against real PostgreSQL+PostGIS, so type-level guarantees an ORM would add are covered by tests.
+
+**Consequences.** Row types are maintained by hand next to their queries; repository discipline (no SQL outside repositories/services) is enforced in review; the migrator is forward-only (fixes are new migrations).
+
+---
+
 ## Open decisions (tracked, not yet ADRs)
 
 | ID | Topic | Notes |

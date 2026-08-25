@@ -4,6 +4,24 @@ All notable changes to this project are documented here. Format loosely follows 
 
 ## [Unreleased]
 
+### Phase 1 — Authentication + users (2026-08-25)
+
+**Added**
+- PostgreSQL migrations infrastructure: minimal forward-only SQL migrator (`pnpm --filter @gig/api migrate`), `schema_migrations` tracking, extensions (postgis, citext, pgcrypto).
+- Schema: `users` (dual-role support), `refresh_tokens`, `one_time_tokens`, `verification_records` (single-PASSED-per-type constraint), append-only `audit_logs`.
+- Auth module: argon2id registration/login, short-lived HS256 JWT access tokens, rotating single-use refresh tokens with family revocation on reuse detection, email verification, E.164 phone verification via 6-digit codes (attempt-limited), enumeration-resistant password reset that revokes all sessions.
+- Users module: `GET /v1/me` (allow-listed DTO), `POST /v1/me/roles` (add CUSTOMER/WORKER; ADMIN never self-assignable), `DELETE /v1/me` (deletion request with login-reactivation grace).
+- Authorization core: global JWT guard (fresh DB user load — suspensions take effect immediately), central permission service + `@RequirePermissions`, standard error envelope with stable codes, global validation pipe (whitelist + 422 envelope), strict per-route throttling on credential endpoints.
+- Dev provider adapters (clearly labeled console email/SMS senders); readiness check now verifies database connectivity.
+- Test infrastructure: Jest + supertest against real PostgreSQL (dedicated `gig_test` db, full reset per run); 12 integration tests covering registration, duplicate/validation errors, email/phone verification, login timing-safe enumeration resistance, refresh rotation + reuse-detection family revocation, password reset session revocation, dual roles, deletion flow.
+
+**Fixed during testing**
+- Refresh-token family revocation on reuse was rolled back with the failing transaction — moved outside the transaction so the security revocation persists.
+- Registered pg type parsers for enum arrays (`user_role[]` returned as raw string).
+
+**Decisions**
+- ADR-009: node-postgres + hand-written SQL migrations (no ORM); resolves OD-6.
+
 ### Phase 0 — Repository + architecture (2026-08-25)
 
 **Added**

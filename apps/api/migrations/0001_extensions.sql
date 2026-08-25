@@ -1,0 +1,4 @@
+-- Core Postgres extensions (see ADR-002).
+CREATE EXTENSION IF NOT EXISTS postgis;
+CREATE EXTENSION IF NOT EXISTS citext;
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
