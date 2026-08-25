@@ -219,6 +219,16 @@ export class JobsService {
 
       await this.assertWorkerEligible(client, worker.id, job.category_id);
 
+      const { rows: blocks } = await client.query(
+        `SELECT 1 FROM user_blocks
+         WHERE (blocker_user_id = $1 AND blocked_user_id = $2)
+            OR (blocker_user_id = $2 AND blocked_user_id = $1)`,
+        [worker.id, job.customer_user_id],
+      );
+      if (blocks.length > 0) {
+        throw new DomainError('JOB_NOT_OPEN', 'This job is not available to you', 409);
+      }
+
       if (job.workers_filled >= job.workers_needed) {
         // Defensive: state should already be FILLED, but the CHECK + this guard
         // make overfill impossible even under bugs.

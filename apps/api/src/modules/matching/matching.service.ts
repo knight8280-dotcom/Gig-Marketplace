@@ -53,6 +53,9 @@ export class MatchingService {
          AND (w.min_pay_cents IS NULL OR j.pay_cents >= w.min_pay_cents)
          AND NOT EXISTS (SELECT 1 FROM job_workers a
                          WHERE a.job_id = j.id AND a.worker_user_id = w.user_id)
+         AND NOT EXISTS (SELECT 1 FROM user_blocks b
+                         WHERE (b.blocker_user_id = w.user_id AND b.blocked_user_id = j.customer_user_id)
+                            OR (b.blocker_user_id = j.customer_user_id AND b.blocked_user_id = w.user_id))
          AND (NOT (SELECT requires_identity_verification FROM categories c WHERE c.id = j.category_id)
               OR EXISTS (SELECT 1 FROM verification_records vr
                          WHERE vr.user_id = w.user_id AND vr.type = 'IDENTITY' AND vr.status = 'PASSED'

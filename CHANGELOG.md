@@ -4,6 +4,14 @@ All notable changes to this project are documented here. Format loosely follows 
 
 ## [Unreleased]
 
+### Phases 9 & 11 — Messaging and ratings (2026-08-25)
+
+**Added**
+- Schema: `conversations` (unique per job + worker), `messages` (sequenced, report/hide flags, never hard-deleted), `user_blocks`, `ratings` (per-assignment, unique per direction, double-blind `visible_at`).
+- Messaging module: job-scoped conversations opened at/after acceptance, text messages with keyset pagination, unread counts + read receipts, message reporting (audited), block/unblock; conversations become read-only 14 days after terminal job states; blocked pairs cannot message, match, or accept each other's jobs (wired into matching + acceptance).
+- Ratings module: two-sided per-assignment ratings (overall + optional dimensions), double-blind visibility (mutual submit or configurable window), profile aggregates recomputed over visible ratings only, pending-ratings prompts, duplicate/outsider protection.
+- 6 new integration tests: conversation participation + IDOR, read receipts, reporting, block enforcement, rating gating (pre-completion, duplicates, outsiders), double-blind visibility + aggregate math.
+
 ### Phases 5–8 — Job creation, discovery, matching, lifecycle (2026-08-25)
 
 **Added**

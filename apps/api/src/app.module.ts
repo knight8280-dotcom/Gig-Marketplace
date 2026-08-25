@@ -12,6 +12,8 @@ import { CatalogModule } from './modules/catalog/catalog.module';
 import { SettingsModule } from './modules/settings/settings.module';
 import { JobsModule } from './modules/jobs/jobs.module';
 import { MatchingModule } from './modules/matching/matching.module';
+import { MessagingModule } from './modules/messaging/messaging.module';
+import { RatingsModule } from './modules/ratings/ratings.module';
 import { GlobalExceptionFilter } from './common/http-exception.filter';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
@@ -37,6 +39,8 @@ import { DomainError } from './common/errors';
     SettingsModule,
     JobsModule,
     MatchingModule,
+    MessagingModule,
+    RatingsModule,
   ],
   controllers: [HealthController],
   providers: [
