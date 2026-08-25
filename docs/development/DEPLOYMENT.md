@@ -1,60 +1,92 @@
-# Deployment (Render pilot)
+# Deployment (GitHub Pages)
 
-The repo root contains `render.yaml` — a Render Blueprint defining the full
-pilot stack. Phase 19's hosting decision (OD-5) is executed as: Render,
-free plan for the pilot, upgrade paths noted below.
+The website deploys to GitHub Pages from `.github/workflows/deploy-pages.yml`,
+which builds the Expo web export and publishes it on every push to `main`
+(or on demand via **Actions → Deploy website → Run workflow**).
 
-## Stack
+## What this hosts, and what it does not
 
-| Service | Type | URL |
+GitHub Pages serves **static files only**. It runs no server process and no
+database, so it hosts exactly one of the three services in this repo:
+
+| Service | Hosted here? | Why |
 |---|---|---|
-| `gig-marketplace-api` | Node web service (NestJS) | https://gig-marketplace-api.onrender.com |
-| `gig-marketplace-admin` | Node web service (Next.js) | https://gig-marketplace-admin.onrender.com |
-| `gig-marketplace-web` | Static site (Expo web export) | https://gig-marketplace-web.onrender.com |
-| `gig-marketplace-db` | PostgreSQL 16 + PostGIS | internal |
+| Customer/worker website (Expo web export) | **Yes** | Static HTML/JS/CSS |
+| API (`@gig/api`) | No | NestJS server process + PostgreSQL/PostGIS |
+| Admin dashboard (`@gig/admin`) | No | Next.js server rendering |
 
-On every deploy the API runs migrations, then the idempotent production
-bootstrap (`bootstrap-cli.ts`: default platform fee; first admin user when
-`BOOTSTRAP_ADMIN_EMAIL`/`BOOTSTRAP_ADMIN_PASSWORD` are set and no admin
-exists), then boots.
+**Consequence:** until an API is hosted somewhere and `API_URL` is set (below),
+the deployed site serves the landing page correctly and every screen behind
+sign-in fails to load data. That is the honest state of a Pages-only deploy —
+it is a marketing site plus a shell, not a working marketplace.
 
-## First deploy
+## One-time setup
 
-1. Open https://dashboard.render.com/blueprint/new?repo=https://github.com/knight8280-dotcom/Gig-Marketplace
-2. Complete GitHub authorization (private repo), pick the `main` branch.
-3. Fill the `sync: false` secrets when prompted:
-   - `STRIPE_SECRET_KEY` / `STRIPE_PUBLISHABLE_KEY` — **test-mode keys**
-     (`sk_test_…` / `pk_test_…`) until Stripe Connect is enabled and the
-     legal gate (LEGAL_COMPLIANCE.md) is cleared.
-   - `TWILIO_API_KEY_SID` (`SK…`) / `TWILIO_API_KEY_SECRET`.
-   - `BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_PASSWORD` (min 12 chars) —
-     log in to the admin dashboard and enroll TOTP 2FA immediately.
-   - `STRIPE_WEBHOOK_SECRET` — leave blank on first deploy; see below.
-4. Apply. Three services and the database build and deploy.
+1. **Pages requires a public repo or a paid plan.** This repository is
+   currently **private**, and publishing Pages from a private repository needs
+   GitHub Pro, Team, or Enterprise. On the free plan, make the repository
+   public first — review it for anything you would not publish before you do.
+2. **Settings → Pages → Build and deployment → Source: GitHub Actions.**
+   Do not pick "Deploy from a branch"; this workflow uploads an artifact.
+3. Push to `main`. The site appears at
+   `https://<owner>.github.io/<repo>/` — for this repo,
+   `https://knight8280-dotcom.github.io/Gig-Marketplace/`.
 
-## After first deploy
+## Pointing the site at an API
 
-1. **Stripe webhook**: in the Stripe dashboard (test mode) add a webhook
-   endpoint for `https://gig-marketplace-api.onrender.com/v1/webhooks/stripe`
-   with events `payment_intent.succeeded`, `payment_intent.payment_failed`,
-   `account.updated`, `transfer.reversed`; paste the signing secret into the
-   API service's `STRIPE_WEBHOOK_SECRET` env var.
-2. **Categories**: log in to the admin dashboard and create/enable the pilot
-   categories (production category enablement is gated by legal checklist L-8,
-   so this is deliberately manual).
-3. Sanity: `GET /healthz` and `GET /readyz` on the API return `ok`.
+When the API is hosted (any Node host with PostgreSQL + PostGIS — Fly.io,
+Railway, a VPS), wire the two sides together:
 
-## Known pilot limitations (upgrade before real usage)
+1. **Settings → Secrets and variables → Actions → Variables** → add
+   `API_URL`, e.g. `https://api.example.com`. The next deploy bakes it in —
+   `EXPO_PUBLIC_*` values are compiled into the bundle at build time, so
+   changing the variable requires a redeploy, not just a restart.
+2. On the API, set `CORS_ORIGINS` to the Pages origin
+   (`https://knight8280-dotcom.github.io`) so the browser is allowed to call
+   it.
+3. The API still needs its own environment: `DATABASE_URL`,
+   `JWT_ACCESS_SECRET` (≥32 chars), Stripe keys, and — after creating the
+   webhook endpoint — `STRIPE_WEBHOOK_SECRET`. It runs migrations and the
+   idempotent bootstrap on boot:
+   `node apps/api/dist/database/migrate-cli.js && node apps/api/dist/database/bootstrap-cli.js && node apps/api/dist/main.js`
 
-- **Free plan spin-down**: services idle out after 15 min; first request
-  takes ~1 min. Upgrade services to `starter` to keep them warm.
-- **Free Postgres expires after 30 days** — upgrade to `basic_256mb` well
-  before then (data is kept when upgrading, lost if the free DB expires).
-- **Uploads are ephemeral** (`/tmp`): job photos are lost on deploy/restart.
-  Add S3-compatible object storage (adapter interface already exists in
-  `files/storage.adapter.ts`) before real usage.
-- **Email is console-only** (`EMAIL_PROVIDER=console`): verification and
-  password-reset emails appear in the API service logs instead of inboxes.
-  Provision SMTP credentials and set `EMAIL_PROVIDER=smtp` + `SMTP_URL`.
+## How the build handles two GitHub Pages quirks
+
+Both are handled in the workflow; they are noted here because they break
+silently if the workflow is ever rewritten.
+
+- **Base path.** A project site is served from `/<repo>/`, not the domain
+  root. The workflow passes `EXPO_WEB_BASE_URL` (from
+  `actions/configure-pages`) into the export, and `apps/mobile/app.config.js`
+  turns it into Expo's `experiments.baseUrl`. Without it every asset and route
+  resolves against the domain root and 404s.
+- **Jekyll and underscores.** Pages runs Jekyll by default, which drops
+  directories whose names begin with `_` — that is the whole `_expo/static`
+  bundle. The workflow writes a `.nojekyll` file to switch Jekyll off.
+- **No rewrite rules.** Expo emits a real file per static route, so those work
+  directly. Dynamic routes (`/job/<id>`) have no matching file, so the
+  workflow copies `index.html` to `404.html`; Pages serves it and the router
+  takes over. Such a URL is answered with HTTP 404 even though the page
+  renders — a custom domain plus a host with rewrites avoids that if it
+  matters for SEO.
+
+## Custom domain
+
+Set it under **Settings → Pages → Custom domain**. `configure-pages` then
+reports an empty base path, so the export is built for the domain root
+automatically — no code change needed. Add the domain to the API's
+`CORS_ORIGINS` too.
+
+## Before real usage
+
+- **Uploads are not hosted.** Job photos are written to `UPLOADS_DIR` on the
+  API host's disk. Add S3-compatible object storage (the adapter interface
+  already exists in `files/storage.adapter.ts`) before real usage.
+- **Email is console-only** by default (`EMAIL_PROVIDER=console`):
+  verification and password-reset emails appear in the API logs instead of
+  inboxes. Set `EMAIL_PROVIDER=smtp` + `SMTP_URL`.
 - **SMS requires a Twilio phone number** on the account (auto-discovered once
   purchased; or set `TWILIO_FROM_NUMBER`).
+- **Payments stay in Stripe test mode** until Connect is enabled and the legal
+  gate in [LEGAL_COMPLIANCE.md](../business/LEGAL_COMPLIANCE.md) is cleared —
+  L-2 (terms of service) and L-3 (insurance) are both marked blockers.
