@@ -89,6 +89,28 @@ Against an empty database, using the same command sequence the image runs:
   database check;
 - with no `STRIPE_SECRET_KEY`, boot succeeds and warns rather than crashing.
 
+## Hosting the admin dashboard
+
+The ops dashboard is needed before a real pilot: enabling a category is
+deliberately manual (TRUST_AND_SAFETY / legal checklist L-8), and that happens
+here. `apps/admin/Dockerfile` builds it:
+
+```bash
+docker build -f apps/admin/Dockerfile \
+  --build-arg NEXT_PUBLIC_API_URL=https://your-api-host \
+  -t gig-admin .
+```
+
+`NEXT_PUBLIC_*` values are compiled into the client bundle, so the API URL is a
+**build argument, not a runtime variable** — changing it means rebuilding.
+
+Add the dashboard's origin to the API's `CORS_ORIGINS`, sign in with the
+bootstrap admin, and enrol TOTP 2FA immediately.
+
+Running it outside a container: `pnpm --filter @gig/admin build`, then
+`pnpm --filter @gig/admin start`. Note that `start` (unlike `dev`) does not pin
+a port and defaults to 3000, which collides with the API locally — set `PORT`.
+
 ## Pointing the site at an API
 
 Once the API is hosted, wire the two sides together:

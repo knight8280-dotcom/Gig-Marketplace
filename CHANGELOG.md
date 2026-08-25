@@ -30,6 +30,10 @@ https://knight8280-dotcom.github.io/Gig-Marketplace/.**
   and the absence of rewrite rules for dynamic routes (`index.html` → `404.html`).
 - **API container image** (`apps/api/Dockerfile`) and `start:prod`, so a host
   runs migrations, the idempotent bootstrap, and the server with one command.
+- **Admin container image** (`apps/admin/Dockerfile`). The dashboard is needed
+  before a pilot because enabling a category is deliberately manual (L-8). Its
+  API URL is a build argument, since `NEXT_PUBLIC_*` is compiled into the
+  client bundle.
 
 **Fixed**
 - **CI had failed on every commit since Phase 1.** The API suite is
