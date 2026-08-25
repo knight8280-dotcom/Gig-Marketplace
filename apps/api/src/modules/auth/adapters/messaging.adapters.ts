@@ -34,24 +34,89 @@ export class ConsoleSmsSender implements SmsSender {
 }
 
 /**
- * Twilio SMS (SMS_PROVIDER=twilio). Requires TWILIO_ACCOUNT_SID,
- * TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER. Plain REST call — no SDK needed.
+ * Twilio SMS (SMS_PROVIDER=twilio). Two supported auth modes:
+ *  - Account SID (AC…) + auth token: TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN.
+ *  - API key SID (SK…) + secret: TWILIO_API_KEY_SID / TWILIO_API_KEY_SECRET.
+ *    The owning account SID is discovered via GET /Accounts.json and cached.
+ * The From number comes from TWILIO_FROM_NUMBER, or — when unset — the first
+ * incoming phone number on the account (discovered once and cached).
+ * Plain REST calls — no SDK needed.
  */
 @Injectable()
 export class TwilioSmsSender implements SmsSender {
   private readonly logger = new Logger('TwilioSms');
+  private accountSid: string | null = null;
+  private fromNumber: string | null = null;
+
+  private basicAuth(): string {
+    const accountSid = process.env.TWILIO_ACCOUNT_SID;
+    const authToken = process.env.TWILIO_AUTH_TOKEN;
+    if (accountSid?.startsWith('AC') && authToken) {
+      return `Basic ${Buffer.from(`${accountSid}:${authToken}`).toString('base64')}`;
+    }
+    const keySid = process.env.TWILIO_API_KEY_SID;
+    const keySecret = process.env.TWILIO_API_KEY_SECRET;
+    if (keySid?.startsWith('SK') && keySecret) {
+      return `Basic ${Buffer.from(`${keySid}:${keySecret}`).toString('base64')}`;
+    }
+    throw new Error(
+      'Twilio is not configured (need TWILIO_ACCOUNT_SID + TWILIO_AUTH_TOKEN, or TWILIO_API_KEY_SID + TWILIO_API_KEY_SECRET)',
+    );
+  }
+
+  private async twilioGet<T>(path: string): Promise<T> {
+    const res = await fetch(`https://api.twilio.com/2010-04-01${path}`, {
+      headers: { authorization: this.basicAuth() },
+    });
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '');
+      this.logger.error(`Twilio GET ${path} failed (${res.status}): ${detail.slice(0, 200)}`);
+      throw new Error('Twilio API request failed');
+    }
+    return (await res.json()) as T;
+  }
+
+  private async resolveAccountSid(): Promise<string> {
+    if (this.accountSid) return this.accountSid;
+    const configured = process.env.TWILIO_ACCOUNT_SID;
+    if (configured?.startsWith('AC')) {
+      this.accountSid = configured;
+      return configured;
+    }
+    const data = await this.twilioGet<{ accounts: Array<{ sid: string }> }>('/Accounts.json?PageSize=1');
+    const sid = data.accounts[0]?.sid;
+    if (!sid) throw new Error('Twilio: could not discover an account SID for these credentials');
+    this.accountSid = sid;
+    return sid;
+  }
+
+  private async resolveFromNumber(accountSid: string): Promise<string> {
+    if (this.fromNumber) return this.fromNumber;
+    const configured = process.env.TWILIO_FROM_NUMBER;
+    if (configured) {
+      this.fromNumber = configured;
+      return configured;
+    }
+    const data = await this.twilioGet<{ incoming_phone_numbers: Array<{ phone_number: string }> }>(
+      `/Accounts/${accountSid}/IncomingPhoneNumbers.json?PageSize=1`,
+    );
+    const number = data.incoming_phone_numbers[0]?.phone_number;
+    if (!number) {
+      throw new Error(
+        'Twilio: no From number available — set TWILIO_FROM_NUMBER or buy a phone number on the account',
+      );
+    }
+    this.fromNumber = number;
+    return number;
+  }
 
   async send(toPhone: string, body: string): Promise<void> {
-    const sid = process.env.TWILIO_ACCOUNT_SID;
-    const token = process.env.TWILIO_AUTH_TOKEN;
-    const from = process.env.TWILIO_FROM_NUMBER;
-    if (!sid || !token || !from) {
-      throw new Error('Twilio is not configured (TWILIO_ACCOUNT_SID / TWILIO_AUTH_TOKEN / TWILIO_FROM_NUMBER)');
-    }
-    const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${sid}/Messages.json`, {
+    const accountSid = await this.resolveAccountSid();
+    const from = await this.resolveFromNumber(accountSid);
+    const res = await fetch(`https://api.twilio.com/2010-04-01/Accounts/${accountSid}/Messages.json`, {
       method: 'POST',
       headers: {
-        authorization: `Basic ${Buffer.from(`${sid}:${token}`).toString('base64')}`,
+        authorization: this.basicAuth(),
         'content-type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({ To: toPhone, From: from, Body: body }).toString(),

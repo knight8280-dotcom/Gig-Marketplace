@@ -1,4 +1,7 @@
 import 'reflect-metadata';
+// Provider env resolution must precede AppModule: provider selection reads
+// process.env while modules are being decorated at import time.
+import './config/resolve-provider-env';
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 
