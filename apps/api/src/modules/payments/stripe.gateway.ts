@@ -159,29 +159,63 @@ export class RealStripeGateway implements StripeGateway {
     return { id: refund.id, status: refund.status ?? 'unknown' };
   }
 
+  /**
+   * Worker payout account — Accounts v2 recipient configuration (current
+   * Stripe guidance; v1 `type: 'express'` is deprecated for new platforms).
+   * Marketplace defaults: express dashboard, platform collects fees and owns
+   * losses, `stripe_transfers` capability for /v1/transfers payouts.
+   */
   async createExpressAccount(email: string, userId: string): Promise<{ id: string }> {
-    const account = await this.stripe.accounts.create(
-      { type: 'express', email, metadata: { user_id: userId } },
+    const account = await this.stripe.v2.core.accounts.create(
+      {
+        contact_email: email,
+        display_name: email,
+        dashboard: 'express',
+        // ISO 3166-1 alpha-2; required before configuring a recipient. The
+        // pilot is US-only (PRD) — override for other markets.
+        identity: { country: process.env.STRIPE_ACCOUNT_COUNTRY ?? 'US' },
+        defaults: {
+          responsibilities: { fees_collector: 'application', losses_collector: 'application' },
+        },
+        configuration: {
+          recipient: {
+            capabilities: { stripe_balance: { stripe_transfers: { requested: true } } },
+          },
+        },
+        metadata: { user_id: userId },
+      },
       { idempotencyKey: `account:${userId}` },
     );
     return { id: account.id };
   }
 
   async createAccountOnboardingLink(accountId: string, refreshUrl: string, returnUrl: string) {
-    const link = await this.stripe.accountLinks.create({
+    const link = await this.stripe.v2.core.accountLinks.create({
       account: accountId,
-      refresh_url: refreshUrl,
-      return_url: returnUrl,
-      type: 'account_onboarding',
+      use_case: {
+        type: 'account_onboarding',
+        account_onboarding: {
+          configurations: ['recipient'],
+          refresh_url: refreshUrl,
+          return_url: returnUrl,
+        },
+      },
     });
     return { url: link.url };
   }
 
   async getAccountStatus(accountId: string) {
-    const account = await this.stripe.accounts.retrieve(accountId);
+    const account = await this.stripe.v2.core.accounts.retrieve(accountId, {
+      include: ['configuration.recipient', 'requirements'],
+    });
+    // v2 capability status replaces the deprecated v1 charges_enabled /
+    // payouts_enabled booleans. For recipient accounts, transfer readiness is
+    // the single capability that gates payouts.
+    const transfersActive =
+      account.configuration?.recipient?.capabilities?.stripe_balance?.stripe_transfers?.status === 'active';
     return {
-      charges_enabled: account.charges_enabled ?? false,
-      payouts_enabled: account.payouts_enabled ?? false,
+      charges_enabled: transfersActive,
+      payouts_enabled: transfersActive,
       requirements: account.requirements ?? null,
     };
   }

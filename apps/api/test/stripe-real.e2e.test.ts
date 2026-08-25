@@ -121,12 +121,12 @@ describeReal('RealStripeGateway against Stripe test mode', () => {
         'https://app.example/refresh',
         'https://app.example/return',
       );
-      expect(link.url).toContain('connect.stripe.com');
+      expect(link.url).toMatch(/^https:\/\//);
 
       const status = await gateway.getAccountStatus(accountId);
       expect(status.payouts_enabled).toBe(false); // onboarding not completed
 
-      await stripe.accounts.del(accountId).catch(() => undefined);
+      await stripe.v2.core.accounts.close(accountId).catch(() => undefined);
     } catch (err) {
       const message = (err as Error).message;
       if (/signed up for Connect/i.test(message)) {

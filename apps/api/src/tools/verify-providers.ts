@@ -35,11 +35,20 @@ async function verifyStripeTestMode(): Promise<boolean> {
     await stripe.customers.del(customer.id);
     console.log(`✓ Stripe: customer + SetupIntent creation works (${si.status}); cleanup done`);
 
-    // Connect is required for worker payouts (Express accounts + transfers).
+    // Connect is required for worker payouts (v2 recipient accounts + transfers).
     try {
-      const account = await stripe.accounts.create({ type: 'express', email: 'verify@example.test' });
-      await stripe.accounts.del(account.id).catch(() => undefined);
-      console.log('✓ Stripe Connect: enabled (Express account creation works); cleanup done');
+      const account = await stripe.v2.core.accounts.create({
+        contact_email: 'verify@example.test',
+        display_name: 'verify@example.test',
+        dashboard: 'express',
+        identity: { country: process.env.STRIPE_ACCOUNT_COUNTRY ?? 'US' },
+        defaults: { responsibilities: { fees_collector: 'application', losses_collector: 'application' } },
+        configuration: {
+          recipient: { capabilities: { stripe_balance: { stripe_transfers: { requested: true } } } },
+        },
+      });
+      await stripe.v2.core.accounts.close(account.id).catch(() => undefined);
+      console.log('✓ Stripe Connect: enabled (v2 recipient account creation works); cleanup done');
     } catch (connectErr) {
       const message = (connectErr as Error).message;
       if (/signed up for Connect/i.test(message)) {
