@@ -86,7 +86,7 @@ services:
   - type: web
     name: gig-marketplace-web
     runtime: static
-    buildCommand: corepack enable && pnpm install --frozen-lockfile && cd apps/mobile && npx expo export --platform web
+    buildCommand: corepack enable && pnpm install --frozen-lockfile && pnpm --filter @gig/mobile build
     staticPublishPath: apps/mobile/dist
     routes:
       - type: rewrite

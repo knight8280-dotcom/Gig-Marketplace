@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { useState } from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
+import { Screen } from '@/components/screen';
 import { Field, FormError } from '@/components/form';
 import { PrimaryButton } from '@/components/primary-button';
 import { api, ApiError } from '@/api/client';
@@ -32,15 +32,19 @@ export default function WorkerSetup() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  useEffect(() => {
+  // Seed the form from the fetched profile exactly once per fetched object.
+  // Adjusting state during render (rather than in an effect) is React's
+  // documented pattern for this and avoids a second render pass.
+  const [seededFrom, setSeededFrom] = useState<typeof profile.data>(undefined);
+  if (profile.data && profile.data !== seededFrom) {
     const p = profile.data;
-    if (!p) return;
+    setSeededFrom(p);
     setDisplayName(p.display_name);
     setBio(p.bio ?? '');
     setRadiusMiles(String(Math.round(p.service_radius_m / 1609.34)));
     setSkillIds(p.skill_ids);
     setCategoryIds(p.category_ids);
-  }, [profile.data]);
+  }
 
   const toggle = (list: string[], set: (v: string[]) => void, value: string) =>
     set(list.includes(value) ? list.filter((v) => v !== value) : [...list, value]);
@@ -75,8 +79,7 @@ export default function WorkerSetup() {
   };
 
   return (
-    <ThemedView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.form}>
+    <Screen contentStyle={styles.form}>
         <Field label="Display name" value={displayName} onChangeText={setDisplayName} />
         <Field label="Bio" value={bio} onChangeText={setBio} multiline numberOfLines={3} />
         <Field
@@ -130,8 +133,7 @@ export default function WorkerSetup() {
 
         <FormError message={error} />
         <PrimaryButton label="Save" onPress={save} loading={busy} disabled={displayName.length < 2} />
-      </ScrollView>
-    </ThemedView>
+    </Screen>
   );
 }
 
@@ -151,8 +153,7 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  form: { padding: 16, gap: 14 },
+  form: { gap: 14 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { borderWidth: 1, borderColor: '#8884', borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8 },
   chipActive: { borderColor: '#3c87f7', backgroundColor: '#3c87f71a' },

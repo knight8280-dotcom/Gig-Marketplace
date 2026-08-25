@@ -1,12 +1,16 @@
-import { FlatList, StyleSheet, Switch, View } from 'react-native';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { ThemedView } from '@/components/themed-view';
-import { ThemedText } from '@/components/themed-text';
-import { EmptyState, JobCardView } from '@/components/job-card';
-import { useEarnings, useNearbyJobs, useWorkerProfile } from '@/api/hooks';
-import { useDeviceLocation } from '@/hooks/use-device-location';
+import { StyleSheet, Switch, View } from 'react-native';
+
 import { api } from '@/api/client';
+import { useEarnings, useNearbyJobs, useWorkerProfile } from '@/api/hooks';
 import { formatMoney } from '@/api/types';
+import { EmptyState, JobCardView } from '@/components/job-card';
+import { Callout, HomeHeader, Panel, SectionLabel, StatRow, StatTile } from '@/components/home-kit';
+import { Screen } from '@/components/screen';
+import { SiteHead } from '@/components/site-head';
+import { ThemedText } from '@/components/themed-text';
+import { Brand, Spacing } from '@/constants/theme';
+import { useDeviceLocation } from '@/hooks/use-device-location';
 
 export default function WorkerHome() {
   const qc = useQueryClient();
@@ -23,70 +27,90 @@ export default function WorkerHome() {
   });
 
   const availableNow = profile.data?.available_now ?? false;
+  const jobs = nearby.data?.items ?? [];
 
   return (
-    <ThemedView style={styles.container}>
-      <View style={styles.header}>
-        <View style={styles.availabilityRow}>
-          <View>
-            <ThemedText type="smallBold">Available for work</ThemedText>
-            <ThemedText type="small" style={styles.dim}>
-              {availableNow ? 'You can receive job matches' : 'You are not receiving matches'}
-            </ThemedText>
-          </View>
-          <Switch
-            accessibilityLabel="Available for work"
-            value={availableNow}
-            disabled={profile.isLoading || toggleAvailability.isPending}
-            onValueChange={(value) => toggleAvailability.mutate(value)}
-          />
-        </View>
-        {earnings.data ? (
-          <ThemedText type="small" style={styles.dim}>
-            Today: {formatMoney(earnings.data.today_cents)} · This week: {formatMoney(earnings.data.week_cents)}
+    <Screen refreshing={nearby.isLoading} onRefresh={nearby.refetch}>
+      <SiteHead title="Home" />
+
+      <HomeHeader
+        eyebrow="Worker"
+        title={availableNow ? 'You’re open for work' : 'You’re offline'}
+      />
+
+      <Panel style={styles.availabilityPanel}>
+        <View style={styles.availabilityText}>
+          <ThemedText type="smallBold">Available for work</ThemedText>
+          <ThemedText type="small" themeColor="textSecondary">
+            {availableNow
+              ? 'You can receive job matches near you.'
+              : 'You are not receiving matches right now.'}
           </ThemedText>
-        ) : null}
+        </View>
+        <Switch
+          accessibilityLabel="Available for work"
+          value={availableNow}
+          disabled={profile.isLoading || toggleAvailability.isPending}
+          onValueChange={(value) => toggleAvailability.mutate(value)}
+          trackColor={{ true: Brand.primary, false: undefined }}
+        />
+      </Panel>
+
+      <View style={styles.stats}>
+        <StatRow>
+          <StatTile
+            label="Earned today"
+            value={earnings.data ? formatMoney(earnings.data.today_cents) : '—'}
+            tone="money"
+          />
+          <StatTile
+            label="This week"
+            value={earnings.data ? formatMoney(earnings.data.week_cents) : '—'}
+            tone="money"
+          />
+          <StatTile
+            label="Jobs nearby"
+            value={ready ? String(jobs.length) : '—'}
+            hint={availableNow ? undefined : 'Go available to get matched'}
+          />
+        </StatRow>
       </View>
 
-      <ThemedText type="smallBold" style={styles.sectionTitle}>
-        Nearby jobs
-      </ThemedText>
       {isFallback ? (
-        <ThemedText type="small" style={styles.fallbackBanner}>
-          Location unavailable — showing jobs near the pilot city. Enable location for real
-          nearby results.
-        </ThemedText>
+        <View style={styles.calloutWrap}>
+          <Callout icon="location-outline">
+            Location unavailable — showing jobs near the pilot city. Enable location for real
+            nearby results.
+          </Callout>
+        </View>
       ) : null}
-      <FlatList
-        data={nearby.data?.items ?? []}
-        keyExtractor={(j) => j.id}
-        refreshing={nearby.isLoading}
-        onRefresh={nearby.refetch}
-        ListEmptyComponent={
-          nearby.isLoading || !ready ? null : (
-            <EmptyState
-              title="No jobs nearby right now"
-              hint="Check back soon, or expand your service radius in your profile."
-            />
-          )
-        }
-        renderItem={({ item }) => <JobCardView job={item} />}
-      />
-    </ThemedView>
+
+      <View style={styles.section}>
+        <SectionLabel title="Nearby jobs" count={ready ? jobs.length : undefined} />
+        {nearby.isLoading || !ready ? null : jobs.length === 0 ? (
+          <EmptyState
+            title="No jobs nearby right now"
+            hint="Check back soon, or expand your service radius in your profile."
+          />
+        ) : (
+          jobs.map((job) => (
+            <JobCardView key={job.id} job={job as typeof job & { state: string }} />
+          ))
+        )}
+      </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
-  header: { gap: 8, marginBottom: 16 },
-  availabilityRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  dim: { opacity: 0.6 },
-  sectionTitle: { marginBottom: 8 },
-  fallbackBanner: {
-    opacity: 0.8,
-    backgroundColor: '#f7b73c22',
-    borderRadius: 8,
-    padding: 8,
-    marginBottom: 8,
+  availabilityPanel: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: Spacing.three,
   },
+  availabilityText: { flexShrink: 1, gap: 2 },
+  stats: { marginTop: Spacing.three },
+  calloutWrap: { marginTop: Spacing.three },
+  section: { marginTop: Spacing.four },
 });

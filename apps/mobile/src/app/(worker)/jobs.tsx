@@ -1,7 +1,7 @@
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
-import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
+import { Screen } from '@/components/screen';
 import { EmptyState } from '@/components/job-card';
 import { useMyAssignments } from '@/api/hooks';
 import { formatMoney } from '@/api/types';
@@ -19,7 +19,7 @@ const ASSIGNMENT_LABELS: Record<string, string> = {
 export default function WorkerJobs() {
   const { data, isLoading, refetch } = useMyAssignments();
   return (
-    <ThemedView style={styles.container}>
+    <Screen scroll={false}>
       <ThemedText type="subtitle" style={styles.heading}>
         My jobs
       </ThemedText>
@@ -51,12 +51,11 @@ export default function WorkerJobs() {
           </Pressable>
         )}
       />
-    </ThemedView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
   heading: { marginBottom: 12 },
   row: { paddingVertical: 14, borderBottomWidth: 1, borderBottomColor: '#8882' },
   rowText: { gap: 2 },

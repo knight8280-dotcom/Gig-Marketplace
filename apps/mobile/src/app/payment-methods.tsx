@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as WebBrowser from 'expo-web-browser';
-import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
+import { Screen } from '@/components/screen';
 import { PrimaryButton } from '@/components/primary-button';
 import { FormError } from '@/components/form';
 import { api, ApiError } from '@/api/client';
@@ -82,8 +82,7 @@ export default function PaymentMethods() {
   };
 
   return (
-    <ThemedView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
+    <Screen contentStyle={styles.content}>
         {user?.roles.includes('CUSTOMER') ? (
           <View style={styles.section}>
             <ThemedText type="smallBold">Payment method</ThemedText>
@@ -125,14 +124,12 @@ export default function PaymentMethods() {
         ) : null}
 
         <FormError message={error} />
-      </ScrollView>
-    </ThemedView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  content: { padding: 16, gap: 24 },
+  content: { gap: 24 },
   section: { gap: 10 },
   dim: { opacity: 0.65 },
 });

@@ -1,6 +1,6 @@
 import { FlatList, StyleSheet } from 'react-native';
-import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
+import { Screen } from '@/components/screen';
 import { EmptyState, JobCardView } from '@/components/job-card';
 import { useMyJobs } from '@/api/hooks';
 import type { JobCard } from '@/api/types';
@@ -8,7 +8,7 @@ import type { JobCard } from '@/api/types';
 export default function CustomerMyJobs() {
   const jobs = useMyJobs();
   return (
-    <ThemedView style={styles.container}>
+    <Screen scroll={false}>
       <ThemedText type="subtitle" style={styles.heading}>
         My jobs
       </ThemedText>
@@ -24,11 +24,10 @@ export default function CustomerMyJobs() {
         }
         renderItem={({ item }) => <JobCardView job={item} />}
       />
-    </ThemedView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
   heading: { marginBottom: 12 },
 });

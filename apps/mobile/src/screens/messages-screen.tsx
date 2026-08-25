@@ -1,14 +1,14 @@
 import { FlatList, Pressable, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
-import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
+import { Screen } from '@/components/screen';
 import { EmptyState } from '@/components/job-card';
 import { useConversations } from '@/api/hooks';
 
 export function MessagesScreen() {
   const { data, isLoading, refetch } = useConversations();
   return (
-    <ThemedView style={styles.container}>
+    <Screen scroll={false}>
       <ThemedText type="subtitle" style={styles.heading}>
         Messages
       </ThemedText>
@@ -49,12 +49,11 @@ export function MessagesScreen() {
           </Pressable>
         )}
       />
-    </ThemedView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
   heading: { marginBottom: 12 },
   row: {
     flexDirection: 'row',

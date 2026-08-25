@@ -1,8 +1,8 @@
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
-import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
+import { Screen } from '@/components/screen';
 import { Field, FormError } from '@/components/form';
 import { PrimaryButton } from '@/components/primary-button';
 import * as ImagePicker from 'expo-image-picker';
@@ -107,8 +107,7 @@ export default function PostJob() {
   };
 
   return (
-    <ThemedView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.form}>
+    <Screen contentStyle={styles.form}>
         <Field label="Title" value={title} onChangeText={setTitle} placeholder="Unload a moving truck" />
         <Field
           label="Description"
@@ -203,8 +202,7 @@ export default function PostJob() {
           loading={busy}
           disabled={!title || !description || !addressLine1 || !city || !region || !postalCode || !payDollars}
         />
-      </ScrollView>
-    </ThemedView>
+    </Screen>
   );
 }
 
@@ -224,8 +222,7 @@ function Chip({ label, active, onPress }: { label: string; active: boolean; onPr
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  form: { padding: 16, gap: 14 },
+  form: { gap: 14 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: {
     borderWidth: 1,

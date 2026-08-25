@@ -8,6 +8,27 @@ on:
 jobs:
   verify:
     runs-on: ubuntu-latest
+
+    # The API suite is a set of integration tests against a real
+    # PostgreSQL + PostGIS database (ADR-009) — there is no in-memory mode.
+    services:
+      postgres:
+        image: postgis/postgis:16-3.4
+        env:
+          POSTGRES_USER: gig
+          POSTGRES_PASSWORD: gig_dev_password
+          POSTGRES_DB: gig_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U gig -d gig_test"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 20
+
+    env:
+      DATABASE_URL_TEST: postgresql://gig:gig_dev_password@localhost:5432/gig_test
+
     steps:
       - uses: actions/checkout@v4
 
@@ -20,6 +41,11 @@ jobs:
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
+
+      # @gig/api resolves @gig/shared through its published dist/ types, so the
+      # shared package must be compiled before anything typechecks against it.
+      - name: Build shared package
+        run: pnpm --filter @gig/shared build
 
       - name: Typecheck
         run: pnpm typecheck

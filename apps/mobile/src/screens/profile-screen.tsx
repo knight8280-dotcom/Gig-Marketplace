@@ -1,7 +1,7 @@
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
-import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
+import { Screen } from '@/components/screen';
 import { PrimaryButton } from '@/components/primary-button';
 import { useAuth } from '@/state/auth';
 
@@ -13,8 +13,7 @@ export function ProfileScreen() {
   const otherMode = mode === 'WORKER' ? 'CUSTOMER' : 'WORKER';
 
   return (
-    <ThemedView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
+    <Screen contentStyle={styles.content}>
         <ThemedText type="subtitle">Profile</ThemedText>
 
         <View style={styles.section}>
@@ -67,8 +66,7 @@ export function ProfileScreen() {
             }}
           />
         </View>
-      </ScrollView>
-    </ThemedView>
+    </Screen>
   );
 }
 
@@ -84,8 +82,7 @@ function Row({ label, value }: { label: string; value: string }) {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  content: { padding: 16, gap: 20 },
+  content: { gap: 20 },
   section: { gap: 10 },
   row: { flexDirection: 'row', justifyContent: 'space-between', gap: 12 },
   rowLabel: { opacity: 0.6 },

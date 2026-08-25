@@ -3,10 +3,11 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { useColorScheme } from 'react-native';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { useEffect, useState } from 'react';
+import { useEffect } from 'react';
 
 import { AuthProvider, useAuth } from '@/state/auth';
 import { AppStripeProvider } from '@/components/stripe-provider';
+import { SiteHead } from '@/components/site-head';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -16,14 +17,12 @@ const queryClient = new QueryClient({
 
 function RootNavigator() {
   const { loading } = useAuth();
-  const [splashHidden, setSplashHidden] = useState(false);
 
   useEffect(() => {
-    if (!loading && !splashHidden) {
-      SplashScreen.hideAsync();
-      setSplashHidden(true);
-    }
-  }, [loading, splashHidden]);
+    // hideAsync resolves harmlessly once the splash is already gone, so no
+    // "already hidden" flag is needed to guard the repeat call.
+    if (!loading) void SplashScreen.hideAsync();
+  }, [loading]);
 
   if (loading) return null;
 
@@ -55,6 +54,8 @@ export default function RootLayout() {
   const colorScheme = useColorScheme();
   return (
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
+      {/* Site-wide default head; screens override it by rendering their own. */}
+      <SiteHead />
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
           <AppStripeProvider>
