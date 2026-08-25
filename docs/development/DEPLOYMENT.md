@@ -28,14 +28,26 @@ it is a marketing site plus a shell, not a working marketplace.
    public first — review it for anything you would not publish before you do.
 2. **Settings → Pages → Build and deployment → Source: GitHub Actions.**
    Do not pick "Deploy from a branch"; this workflow uploads an artifact.
+
+   This step is manual and cannot be automated from the workflow. The build
+   passes `enablement: true` to `actions/configure-pages`, which asks GitHub to
+   create the Pages site, but the workflow's built-in `GITHUB_TOKEN` is not
+   permitted to do so:
+
+   ```
+   Create Pages site failed. Error: Resource not accessible by integration
+   ```
+
+   Once Pages is enabled by hand the flag is harmless — the action finds the
+   existing site and continues.
 3. Push to `main`. The site appears at
    `https://<owner>.github.io/<repo>/` — for this repo,
    `https://knight8280-dotcom.github.io/Gig-Marketplace/`.
 
 ## Pointing the site at an API
 
-When the API is hosted (any Node host with PostgreSQL + PostGIS — Fly.io,
-Railway, a VPS), wire the two sides together:
+When the API is hosted (any Node host — Fly.io, Railway, Render, a VPS —
+plus a PostgreSQL + PostGIS database), wire the two sides together:
 
 1. **Settings → Secrets and variables → Actions → Variables** → add
    `API_URL`, e.g. `https://api.example.com`. The next deploy bakes it in —
@@ -50,9 +62,9 @@ Railway, a VPS), wire the two sides together:
    idempotent bootstrap on boot:
    `node apps/api/dist/database/migrate-cli.js && node apps/api/dist/database/bootstrap-cli.js && node apps/api/dist/main.js`
 
-## How the build handles two GitHub Pages quirks
+## How the build handles three GitHub Pages quirks
 
-Both are handled in the workflow; they are noted here because they break
+All three are handled in the workflow; they are noted here because they break
 silently if the workflow is ever rewritten.
 
 - **Base path.** A project site is served from `/<repo>/`, not the domain
@@ -69,6 +81,31 @@ silently if the workflow is ever rewritten.
   takes over. Such a URL is answered with HTTP 404 even though the page
   renders — a custom domain plus a host with rewrites avoids that if it
   matters for SEO.
+
+## Database: Supabase
+
+Supabase is managed PostgreSQL, so it works as this project's database with
+**no code changes** — the API connects with `DATABASE_URL` like any other
+Postgres. Nothing else about the architecture changes: the API still owns
+auth, the job state machine, and the payment ledger (ADR-009), and does not
+use Supabase Auth, PostgREST, or Row Level Security.
+
+Verified on a free Supabase project (Postgres 17):
+
+- `postgis` 3.3.7, `citext`, and `pgcrypto` all install, which is everything
+  `0001_extensions.sql` requires.
+- `geography(Point, 4326)` columns and `USING GIST` indexes create cleanly —
+  the shapes `0003_profiles.sql` and `0005_jobs.sql` depend on.
+- `ST_Distance`, `ST_DWithin`, and `<->` KNN ordering all return correct
+  results, which is the whole of the discovery/matching query surface.
+
+To use it: copy the connection string from **Project Settings → Database**
+(use the pooled connection string for a serverless host, the direct one
+otherwise) and set it as `DATABASE_URL` on the API. Migrations and the
+bootstrap run on boot as usual.
+
+Free-tier projects pause after a period of inactivity and are restored on the
+next connection — fine for a pilot, worth upgrading before real traffic.
 
 ## Custom domain
 

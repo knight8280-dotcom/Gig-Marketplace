@@ -85,6 +85,11 @@ Set `EXPO_PUBLIC_API_URL` in `apps/mobile/.env` to your machine's LAN IP so a de
 pnpm --filter @gig/admin dev       # http://localhost:3001
 ```
 
+`dev` pins port 3001, but `pnpm --filter @gig/admin start` (the production
+server) defaults to 3000 and collides with the API. Run it as
+`PORT=3001 pnpm --filter @gig/admin start` locally; hosting platforms inject
+`PORT` themselves.
+
 Sign in with the seeded `admin@example.test` / `devpassword123`.
 
 ## 8. Stripe webhooks in dev (Phase 10+)
