@@ -1,15 +1,24 @@
-import { FlatList, Pressable, StyleSheet, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
-import { ThemedView } from '@/components/themed-view';
-import { ThemedText } from '@/components/themed-text';
-import { PrimaryButton } from '@/components/primary-button';
-import { EmptyState, JobCardView } from '@/components/job-card';
-import { useMyJobs } from '@/api/hooks';
+import { Pressable, StyleSheet, View } from 'react-native';
+
 import { api } from '@/api/client';
-import type { JobCard } from '@/api/types';
+import { useMyJobs } from '@/api/hooks';
+import type { JobCard, JobDetail } from '@/api/types';
+import { EmptyState, JobCardView } from '@/components/job-card';
+import { Callout, HomeHeader, SectionLabel, StatRow, StatTile } from '@/components/home-kit';
+import { Screen } from '@/components/screen';
+import { SiteHead } from '@/components/site-head';
+import { ThemedText } from '@/components/themed-text';
+import { Brand, Radius, Spacing } from '@/constants/theme';
+import { useBreakpoint } from '@/hooks/use-breakpoint';
 
 const ACTIVE_STATES = 'POSTED,MATCHING,PARTIALLY_FILLED,FILLED,IN_PROGRESS,COMPLETION_PENDING';
+/** States where the customer is the one holding the job up. */
+const AWAITING_CUSTOMER = new Set(['COMPLETION_PENDING']);
+
+type ActiveJob = JobDetail & { state: string };
 
 export default function CustomerHome() {
   const active = useMyJobs(ACTIVE_STATES);
@@ -18,51 +27,105 @@ export default function CustomerHome() {
     queryFn: () => api<{ has_payment_method: boolean }>('/me/payment-profile'),
   });
 
-  return (
-    <ThemedView style={styles.container}>
-      <View style={styles.header}>
-        <ThemedText type="subtitle">Need something done?</ThemedText>
-        <PrimaryButton label="Post a job" onPress={() => router.push('/post-job')} />
-        {paymentProfile.data && !paymentProfile.data.has_payment_method ? (
-          <Pressable accessibilityRole="button" onPress={() => router.push('/payment-methods')}>
-            <ThemedText type="small" style={styles.paymentBanner}>
-              No payment method on file — add a card so your jobs can be charged when workers
-              commit. Tap to set up.
-            </ThemedText>
-          </Pressable>
-        ) : null}
-      </View>
+  const jobs = (active.data?.items ?? []) as ActiveJob[];
+  const needsConfirmation = jobs.filter((j) => AWAITING_CUSTOMER.has(j.state));
+  const inProgress = jobs.filter((j) => j.state === 'IN_PROGRESS');
+  const workersCommitted = jobs.reduce((n, j) => n + (j.workers_filled ?? 0), 0);
+  const noCard = paymentProfile.data && !paymentProfile.data.has_payment_method;
 
-      <ThemedText type="smallBold" style={styles.sectionTitle}>
-        Active jobs
-      </ThemedText>
-      <FlatList
-        data={(active.data?.items ?? []) as unknown as (JobCard & { state: string })[]}
-        keyExtractor={(j) => j.id}
-        refreshing={active.isLoading}
-        onRefresh={active.refetch}
-        ListEmptyComponent={
-          active.isLoading ? null : (
-            <EmptyState
-              title="You don't have any active jobs"
-              hint="Post your first job — nearby workers will see it right away."
-            />
-          )
-        }
-        renderItem={({ item }) => <JobCardView job={item} />}
+  return (
+    <Screen refreshing={active.isLoading} onRefresh={active.refetch}>
+      <SiteHead title="Home" />
+
+      <HomeHeader
+        eyebrow="Customer"
+        title="Need something done?"
+        action={<PostJobButton />}
       />
-    </ThemedView>
+
+      <StatRow>
+        <StatTile label="Active jobs" value={String(jobs.length)} />
+        <StatTile label="In progress" value={String(inProgress.length)} />
+        <StatTile
+          label="Workers committed"
+          value={String(workersCommitted)}
+          hint={workersCommitted === 0 ? 'Nobody has accepted yet' : undefined}
+        />
+      </StatRow>
+
+      {noCard ? (
+        <View style={styles.calloutWrap}>
+          <Callout icon="card-outline" onPress={() => router.push('/payment-methods')}>
+            No payment method on file — add a card so your jobs can be charged when workers commit.
+          </Callout>
+        </View>
+      ) : null}
+
+      {needsConfirmation.length > 0 ? (
+        <View style={styles.calloutWrap}>
+          <Callout
+            icon="checkmark-circle-outline"
+            tone="info"
+            onPress={() => router.push(`/job/${needsConfirmation[0].id}`)}
+          >
+            {needsConfirmation.length === 1
+              ? 'A worker marked a job complete. Confirm it to release their payment.'
+              : `${needsConfirmation.length} jobs are waiting on your confirmation.`}
+          </Callout>
+        </View>
+      ) : null}
+
+      <View style={styles.section}>
+        <SectionLabel title="Active jobs" count={jobs.length} />
+        {active.isLoading ? null : jobs.length === 0 ? (
+          <EmptyState
+            title="You don't have any active jobs"
+            hint="Post your first job — nearby workers will see it right away."
+          />
+        ) : (
+          jobs.map((job) => <JobCardView key={job.id} job={job as unknown as JobCard & { state: string }} />)
+        )}
+      </View>
+    </Screen>
+  );
+}
+
+function PostJobButton() {
+  const { isMedium } = useBreakpoint();
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel="Post a job"
+      onPress={() => router.push('/post-job')}
+      style={({ pressed }) => [
+        styles.postButton,
+        !isMedium && styles.postButtonFull,
+        pressed && styles.pressed,
+      ]}
+    >
+      <Ionicons name="add" size={18} color="#fff" />
+      <ThemedText type="smallBold" style={styles.postLabel}>
+        Post a job
+      </ThemedText>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
-  header: { gap: 12, marginBottom: 20 },
-  sectionTitle: { marginBottom: 8 },
-  paymentBanner: {
-    opacity: 0.85,
-    backgroundColor: '#f7b73c22',
-    borderRadius: 8,
-    padding: 10,
+  postButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: Spacing.two,
+    backgroundColor: Brand.primary,
+    minHeight: 48,
+    paddingHorizontal: Spacing.four,
+    borderRadius: Radius.md,
   },
+  postButtonFull: { alignSelf: 'stretch' },
+  postLabel: { color: '#ffffff' },
+  pressed: { opacity: 0.75 },
+
+  calloutWrap: { marginTop: Spacing.three },
+  section: { marginTop: Spacing.four },
 });

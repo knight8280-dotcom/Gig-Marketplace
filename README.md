@@ -3,7 +3,13 @@
 A production-grade, two-sided marketplace connecting **people who need local jobs done** with **people who want flexible local work** — post a job, match with nearby workers, complete it, pay, and rate each other.
 
 > **Working name:** LOCAL GIG MARKETPLACE (final brand not selected).
-> **Status: Phase 0** — architecture, documentation, and repository scaffold. **No product features are implemented yet.** See the [roadmap](docs/development/ROADMAP.md).
+> **Status: working prototype, pre-pilot.** The full golden loop (post → match →
+> accept → perform → confirm → pay → rate) is implemented and covered by
+> integration tests against a real PostgreSQL+PostGIS database. It has **not**
+> been launched: several **launch blockers are legal, not technical** — see
+> [LEGAL_COMPLIANCE.md](docs/business/LEGAL_COMPLIANCE.md) (L-2 terms of
+> service, L-3 insurance) — and payments run in **Stripe test mode**.
+> Deployment runbook: [DEPLOYMENT.md](docs/development/DEPLOYMENT.md).
 
 ## The core loop
 
@@ -17,9 +23,9 @@ CUSTOMER POSTS JOB → PLATFORM FINDS RELEVANT WORKERS → WORKER ACCEPTS
 
 ```
 apps/
-  api/       NestJS backend — modular monolith (API + background worker)   [scaffold]
-  mobile/    Expo React Native app — customers + workers                   [placeholder]
-  admin/     Next.js admin dashboard                                       [placeholder]
+  api/       NestJS backend — modular monolith (API + background worker)
+  mobile/    Expo React Native app — customers + workers (also exports to web)
+  admin/     Next.js admin dashboard
 packages/
   shared/    Shared TypeScript domain types (job states, roles, errors)
 docs/        Product, architecture, database, API, security, business docs
@@ -49,14 +55,21 @@ docs/        Product, architecture, database, API, security, business docs
 | Business | [Payment model](docs/business/PAYMENT_MODEL.md) · [Legal & compliance register](docs/business/LEGAL_COMPLIANCE.md) |
 | Development | [Roadmap](docs/development/ROADMAP.md) · [Local setup](docs/development/LOCAL_SETUP.md) · [Changelog](CHANGELOG.md) |
 
-## Quick start (current scaffold)
+## Quick start
 
 ```bash
-corepack enable            # or: npm i -g pnpm
+corepack enable                     # or: npm i -g pnpm
 pnpm install
-pnpm typecheck             # typecheck all workspaces
-pnpm --filter @gig/api dev # API scaffold with /healthz on :3000
+pnpm --filter @gig/shared build     # @gig/api typechecks against its dist/ output
+docker compose up -d db             # PostgreSQL 16 + PostGIS
+pnpm --filter @gig/api migrate      # create the schema
+pnpm --filter @gig/api seed         # clearly-fake dev accounts + demo jobs
+pnpm --filter @gig/api dev          # API on :3000  (/healthz, /readyz)
 ```
+
+The API test suite is **integration-only** — it runs against a real
+PostgreSQL+PostGIS database (ADR-009), so the database must be up before
+`pnpm test`.
 
 Full instructions (database, seeds, mobile, admin, Stripe webhooks): [docs/development/LOCAL_SETUP.md](docs/development/LOCAL_SETUP.md).
 

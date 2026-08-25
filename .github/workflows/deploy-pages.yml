@@ -1,0 +1,80 @@
+name: Deploy website
+
+# Publishes the customer/worker web app (Expo static export) to GitHub Pages.
+#
+# GitHub Pages is static hosting, so this deploys the website only. The API
+# (NestJS + PostgreSQL/PostGIS) cannot run here — until it is hosted somewhere
+# and API_URL is set below, the marketing page works and everything behind
+# sign-in does not. See docs/development/DEPLOYMENT.md.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Allow one deploy at a time; let an in-flight run finish rather than leaving
+# the live site half-published.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Configure Pages
+        id: pages
+        uses: actions/configure-pages@v5
+
+      - name: Build web export
+        env:
+          # A project site lives under /<repo>/, so the bundle must be built
+          # for that prefix. `base_path` is empty for a custom domain.
+          EXPO_WEB_BASE_URL: ${{ steps.pages.outputs.base_path }}
+          # Set the API_URL repository variable once a backend is hosted
+          # (Settings → Secrets and variables → Actions → Variables).
+          EXPO_PUBLIC_API_URL: ${{ vars.API_URL }}
+        run: pnpm --filter @gig/mobile build
+
+      - name: Prepare artifact for Pages
+        run: |
+          cd apps/mobile/dist
+          # Pages runs Jekyll by default, which silently drops directories
+          # whose names start with an underscore — that is the entire
+          # _expo/static bundle.
+          touch .nojekyll
+          # Pages has no rewrite rules. Expo emits a real file per static
+          # route, but dynamic routes (/job/<id>) have no file to match, so
+          # serve the app shell as the 404 page and let the router take over.
+          cp index.html 404.html
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: apps/mobile/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

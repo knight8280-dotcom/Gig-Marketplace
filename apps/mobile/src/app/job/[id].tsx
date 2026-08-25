@@ -1,8 +1,9 @@
 import { useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { StyleSheet, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
+import { Screen } from '@/components/screen';
 import { PrimaryButton } from '@/components/primary-button';
 import { FormError } from '@/components/form';
 import {
@@ -90,8 +91,7 @@ export default function JobDetail() {
     ['POSTED', 'MATCHING', 'PARTIALLY_FILLED'].includes(j.state);
 
   return (
-    <ThemedView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content}>
+    <Screen contentStyle={styles.content}>
         <ThemedText type="subtitle">{j.title}</ThemedText>
         <ThemedText type="smallBold" style={styles.pay}>
           {formatMoney(j.pay_cents, j.pay_type)} · {j.workers_filled}/{j.workers_needed} workers · {start}
@@ -290,8 +290,7 @@ export default function JobDetail() {
           />
         ) : null}
         {rated ? <ThemedText type="small" style={styles.dim}>Thanks — rating submitted.</ThemedText> : null}
-      </ScrollView>
-    </ThemedView>
+    </Screen>
   );
 }
 
@@ -323,9 +322,8 @@ function RatingRow({ label, onRate }: { label: string; onRate: (stars: number) =
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  content: { padding: 16, gap: 14 },
+  content: { gap: 14 },
   pay: { color: '#2e9e5b' },
   description: { opacity: 0.85 },
   section: { gap: 6, marginTop: 4 },

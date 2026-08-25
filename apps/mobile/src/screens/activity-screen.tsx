@@ -1,6 +1,6 @@
 import { FlatList, StyleSheet, View } from 'react-native';
-import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
+import { Screen } from '@/components/screen';
 import { EmptyState } from '@/components/job-card';
 import { useNotifications } from '@/api/hooks';
 import { api } from '@/api/client';
@@ -21,7 +21,7 @@ export function ActivityScreen() {
   }, [data, qc]);
 
   return (
-    <ThemedView style={styles.container}>
+    <Screen scroll={false}>
       <ThemedText type="subtitle" style={styles.heading}>
         Activity
       </ThemedText>
@@ -45,12 +45,11 @@ export function ActivityScreen() {
           </View>
         )}
       />
-    </ThemedView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 16 },
   heading: { marginBottom: 12 },
   row: { paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#8882', gap: 2 },
   unread: { backgroundColor: '#3c87f70d' },

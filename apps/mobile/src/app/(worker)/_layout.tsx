@@ -1,5 +1,7 @@
 import { Redirect, Tabs } from 'expo-router';
 import { useAuth } from '@/state/auth';
+import { tabIcon } from '@/components/tab-icon';
+import { Brand } from '@/constants/theme';
 
 export default function WorkerTabs() {
   const { user, mode } = useAuth();
@@ -7,12 +9,18 @@ export default function WorkerTabs() {
   if (mode !== 'WORKER') return <Redirect href="/" />;
 
   return (
-    <Tabs screenOptions={{ headerShown: false, tabBarActiveTintColor: '#3c87f7' }}>
-      <Tabs.Screen name="home" options={{ title: 'Home' }} />
-      <Tabs.Screen name="jobs" options={{ title: 'Jobs' }} />
-      <Tabs.Screen name="messages" options={{ title: 'Messages' }} />
-      <Tabs.Screen name="activity" options={{ title: 'Activity' }} />
-      <Tabs.Screen name="profile" options={{ title: 'Profile' }} />
+    <Tabs screenOptions={{ headerShown: false, tabBarActiveTintColor: Brand.primary }}>
+      <Tabs.Screen name="home" options={{ title: 'Home', tabBarIcon: tabIcon('home') }} />
+      <Tabs.Screen name="jobs" options={{ title: 'Jobs', tabBarIcon: tabIcon('briefcase') }} />
+      <Tabs.Screen
+        name="messages"
+        options={{ title: 'Messages', tabBarIcon: tabIcon('chatbubbles') }}
+      />
+      <Tabs.Screen
+        name="activity"
+        options={{ title: 'Activity', tabBarIcon: tabIcon('notifications') }}
+      />
+      <Tabs.Screen name="profile" options={{ title: 'Profile', tabBarIcon: tabIcon('person') }} />
     </Tabs>
   );
 }
