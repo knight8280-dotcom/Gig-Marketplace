@@ -12,7 +12,8 @@
     "bootstrap": "ts-node --transpile-only src/database/bootstrap-cli.ts",
     "seed": "ts-node --transpile-only src/database/seed-cli.ts",
     "verify:providers": "ts-node --transpile-only src/tools/verify-providers.ts",
-    "test": "jest --runInBand"
+    "test": "jest --runInBand",
+    "start:prod": "node dist/database/migrate-cli.js && node dist/database/bootstrap-cli.js && node dist/main.js"
   },
   "dependencies": {
     "@gig/shared": "workspace:*",

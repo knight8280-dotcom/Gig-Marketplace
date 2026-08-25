@@ -1,0 +1,26 @@
+# Build context hygiene — keep local state and other apps' artifacts out of the
+# image so builds are reproducible and small.
+node_modules
+**/node_modules
+**/dist
+**/.next
+**/.expo
+**/*.tsbuildinfo
+
+.git
+.github
+.docker-data
+uploads
+coverage
+*.log
+
+# Secrets must come from the host's environment, never the image.
+.env
+.env.*
+!.env.example
+
+# apps/mobile and apps/admin are deliberately NOT excluded: pnpm needs every
+# workspace manifest present for --frozen-lockfile to match the lockfile. Their
+# bulk (node_modules, dist, .expo, .next) is already excluded above, and the
+# install is filtered to @gig/api... so their dependencies never enter the image.
+docs

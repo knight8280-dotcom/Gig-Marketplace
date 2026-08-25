@@ -1,8 +1,10 @@
-# Deployment (GitHub Pages)
+# Deployment
 
-The website deploys to GitHub Pages from `.github/workflows/deploy-pages.yml`,
-which builds the Expo web export and publishes it on every push to `main`
-(or on demand via **Actions → Deploy website → Run workflow**).
+**The website is live at https://knight8280-dotcom.github.io/Gig-Marketplace/.**
+
+It deploys to GitHub Pages from `.github/workflows/deploy-pages.yml`, which
+builds the Expo web export and publishes it on every push to `main` (or on
+demand via **Actions → Deploy website → Run workflow**).
 
 ## What this hosts, and what it does not
 
@@ -20,19 +22,18 @@ the deployed site serves the landing page correctly and every screen behind
 sign-in fails to load data. That is the honest state of a Pages-only deploy —
 it is a marketing site plus a shell, not a working marketplace.
 
-## One-time setup
+## One-time setup (already done for this repository)
 
-1. **Pages requires a public repo or a paid plan.** This repository is
-   currently **private**, and publishing Pages from a private repository needs
-   GitHub Pro, Team, or Enterprise. On the free plan, make the repository
-   public first — review it for anything you would not publish before you do.
+Recorded for anyone setting this up again, or moving it to another repo:
+
+1. **Pages needs a public repository, or GitHub Pro/Team/Enterprise for a
+   private one.** This repository is public.
 2. **Settings → Pages → Build and deployment → Source: GitHub Actions.**
-   Do not pick "Deploy from a branch"; this workflow uploads an artifact.
+   Not "Deploy from a branch" — this workflow uploads an artifact.
 
-   This step is manual and cannot be automated from the workflow. The build
-   passes `enablement: true` to `actions/configure-pages`, which asks GitHub to
-   create the Pages site, but the workflow's built-in `GITHUB_TOKEN` is not
-   permitted to do so:
+   This step is manual. The build passes `enablement: true` to
+   `actions/configure-pages` so the action can create the site itself, but the
+   workflow's built-in `GITHUB_TOKEN` is refused:
 
    ```
    Create Pages site failed. Error: Resource not accessible by integration
@@ -40,14 +41,79 @@ it is a marketing site plus a shell, not a working marketplace.
 
    Once Pages is enabled by hand the flag is harmless — the action finds the
    existing site and continues.
-3. Push to `main`. The site appears at
-   `https://<owner>.github.io/<repo>/` — for this repo,
-   `https://knight8280-dotcom.github.io/Gig-Marketplace/`.
+3. Push to `main`. The site appears at `https://<owner>.github.io/<repo>/`.
+
+## Hosting the API
+
+GitHub Pages cannot run the API, so it needs a container or Node host of its
+own. `apps/api/Dockerfile` builds a self-contained image and works anywhere
+that takes a Dockerfile (Fly.io, Railway, Render, Cloud Run, a VPS):
+
+```bash
+docker build -f apps/api/Dockerfile -t gig-api .   # from the repository root
+```
+
+On a host that builds from source instead of a Dockerfile, use:
+
+| | |
+|---|---|
+| Build | `pnpm install --frozen-lockfile && pnpm --filter @gig/shared build && pnpm --filter @gig/api build` |
+| Start | `pnpm --filter @gig/api start:prod` |
+
+`start:prod` runs migrations, then the idempotent bootstrap, then the server —
+safe to re-run on every deploy.
+
+### Required environment
+
+| Variable | Notes |
+|---|---|
+| `DATABASE_URL` | PostgreSQL 16+ with `postgis`, `citext`, `pgcrypto` available |
+| `JWT_ACCESS_SECRET` | At least 32 characters; boot refuses shorter in production |
+| `CORS_ORIGINS` | `https://knight8280-dotcom.github.io` for the Pages site |
+| `PORT` | Usually injected by the host |
+| `BOOTSTRAP_ADMIN_EMAIL` / `BOOTSTRAP_ADMIN_PASSWORD` | Creates the first admin on first boot; enrol TOTP 2FA immediately after |
+| `UPLOADS_DIR` | Local disk today — see the object-storage note below |
+
+Stripe and Twilio credentials are optional to boot: the API logs a warning and
+the corresponding endpoints fail honestly until they are set.
+
+### Verified boot behaviour
+
+Against an empty database, using the same command sequence the image runs:
+
+- migrations apply cleanly, then bootstrap creates the default platform fee
+  (1500 bps) and the first admin;
+- running bootstrap twice is a no-op the second time (`an admin already
+  exists — nothing to do`);
+- `/healthz` and `/readyz` both return ok, with `readyz` reporting the
+  database check;
+- with no `STRIPE_SECRET_KEY`, boot succeeds and warns rather than crashing.
+
+## Hosting the admin dashboard
+
+The ops dashboard is needed before a real pilot: enabling a category is
+deliberately manual (TRUST_AND_SAFETY / legal checklist L-8), and that happens
+here. `apps/admin/Dockerfile` builds it:
+
+```bash
+docker build -f apps/admin/Dockerfile \
+  --build-arg NEXT_PUBLIC_API_URL=https://your-api-host \
+  -t gig-admin .
+```
+
+`NEXT_PUBLIC_*` values are compiled into the client bundle, so the API URL is a
+**build argument, not a runtime variable** — changing it means rebuilding.
+
+Add the dashboard's origin to the API's `CORS_ORIGINS`, sign in with the
+bootstrap admin, and enrol TOTP 2FA immediately.
+
+Running it outside a container: `pnpm --filter @gig/admin build`, then
+`pnpm --filter @gig/admin start`. Note that `start` (unlike `dev`) does not pin
+a port and defaults to 3000, which collides with the API locally — set `PORT`.
 
 ## Pointing the site at an API
 
-When the API is hosted (any Node host — Fly.io, Railway, Render, a VPS —
-plus a PostgreSQL + PostGIS database), wire the two sides together:
+Once the API is hosted, wire the two sides together:
 
 1. **Settings → Secrets and variables → Actions → Variables** → add
    `API_URL`, e.g. `https://api.example.com`. The next deploy bakes it in —

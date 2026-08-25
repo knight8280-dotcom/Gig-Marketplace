@@ -3,6 +3,8 @@
 A production-grade, two-sided marketplace connecting **people who need local jobs done** with **people who want flexible local work** — post a job, match with nearby workers, complete it, pay, and rate each other.
 
 > **Working name:** LOCAL GIG MARKETPLACE (final brand not selected).
+> **Website:** https://knight8280-dotcom.github.io/Gig-Marketplace/ — the
+> marketing site is live; screens behind sign-in wait on a hosted API.
 > **Status: working prototype, pre-pilot.** The full golden loop (post → match →
 > accept → perform → confirm → pay → rate) is implemented and covered by
 > integration tests against a real PostgreSQL+PostGIS database. It has **not**
