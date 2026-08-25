@@ -1,0 +1,35 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Gig {
+  id           String   @id @default(cuid())
+  title        String
+  description  String
+  category     String
+  price        Int
+  deliveryDays Int
+  sellerName   String
+  sellerEmoji  String   @default("🧑‍💻")
+  rating       Float    @default(5)
+  reviews      Int      @default(0)
+  createdAt    DateTime @default(now())
+
+  orders Order[]
+}
+
+model Order {
+  id           String   @id @default(cuid())
+  gig          Gig      @relation(fields: [gigId], references: [id], onDelete: Cascade)
+  gigId        String
+  buyerName    String
+  buyerEmail   String
+  requirements String
+  status       String   @default("pending")
+  createdAt    DateTime @default(now())
+}
