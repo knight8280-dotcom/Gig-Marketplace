@@ -38,8 +38,31 @@ export class FakeStripeGateway implements StripeGateway {
     return { id };
   }
 
+  setupIntents = new Map<string, { customerId: string; confirmedPm: string | null }>();
+
   async createSetupIntent(customerId: string): Promise<{ id: string; client_secret: string }> {
-    return { id: this.id('seti'), client_secret: `seti_secret_${customerId}` };
+    const id = this.id('seti');
+    this.setupIntents.set(id, { customerId, confirmedPm: null });
+    return { id, client_secret: `seti_secret_${customerId}` };
+  }
+
+  /** Test helper: simulate the client confirming the setup intent with a card. */
+  confirmSetupIntent(setupIntentId: string): string {
+    const si = this.setupIntents.get(setupIntentId);
+    if (!si) throw new Error('unknown setup intent');
+    const pm = this.attachPaymentMethod(si.customerId);
+    si.confirmedPm = pm;
+    return pm;
+  }
+
+  async getSetupIntent(setupIntentId: string) {
+    const si = this.setupIntents.get(setupIntentId);
+    if (!si) return { status: 'unknown', payment_method: null, customer: null };
+    return {
+      status: si.confirmedPm ? 'succeeded' : 'requires_payment_method',
+      payment_method: si.confirmedPm,
+      customer: si.customerId,
+    };
   }
 
   /** Test helper: attach a card to a customer (simulates client-side confirm). */

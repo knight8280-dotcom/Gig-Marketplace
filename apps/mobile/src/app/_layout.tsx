@@ -6,6 +6,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useEffect, useState } from 'react';
 
 import { AuthProvider, useAuth } from '@/state/auth';
+import { AppStripeProvider } from '@/components/stripe-provider';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -38,6 +39,14 @@ function RootNavigator() {
         name="post-job"
         options={{ headerShown: true, title: 'Post a job', presentation: 'modal' }}
       />
+      <Stack.Screen
+        name="payment-methods"
+        options={{ headerShown: true, title: 'Payments & payouts' }}
+      />
+      <Stack.Screen
+        name="worker-setup"
+        options={{ headerShown: true, title: 'Worker setup' }}
+      />
     </Stack>
   );
 }
@@ -48,7 +57,9 @@ export default function RootLayout() {
     <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
       <QueryClientProvider client={queryClient}>
         <AuthProvider>
-          <RootNavigator />
+          <AppStripeProvider>
+            <RootNavigator />
+          </AppStripeProvider>
         </AuthProvider>
       </QueryClientProvider>
     </ThemeProvider>

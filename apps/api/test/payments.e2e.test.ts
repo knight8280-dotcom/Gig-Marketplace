@@ -528,6 +528,37 @@ describe('Payments, disputes, notifications (Phases 10–14)', () => {
     expect(view.body.state).toBe('PAID');
   });
 
+  it('payment-sheet flow: setup intent → client confirm → sync adopts the card', async () => {
+    const fresh = await registerVerifiedUser(ctx, 'sheet@example.test', 'CUSTOMER');
+    const si = await request(server())
+      .post('/v1/me/payment-methods/setup-intent')
+      .set('Authorization', `Bearer ${fresh.token}`)
+      .expect(200);
+    expect(si.body.client_secret).toBeTruthy();
+
+    // Syncing before the client confirmed is refused (no fake success).
+    await request(server())
+      .post('/v1/me/payment-methods/sync-setup-intent')
+      .set('Authorization', `Bearer ${fresh.token}`)
+      .send({ setup_intent_id: si.body.id })
+      .expect(409);
+
+    ctx.stripe.confirmSetupIntent(si.body.id);
+    const synced = await request(server())
+      .post('/v1/me/payment-methods/sync-setup-intent')
+      .set('Authorization', `Bearer ${fresh.token}`)
+      .send({ setup_intent_id: si.body.id })
+      .expect(200);
+    expect(synced.body.has_payment_method).toBe(true);
+
+    // Another user cannot adopt someone else's setup intent.
+    await request(server())
+      .post('/v1/me/payment-methods/sync-setup-intent')
+      .set('Authorization', `Bearer ${customer.token}`)
+      .send({ setup_intent_id: si.body.id })
+      .expect(422);
+  });
+
   it('admin overview reports sane marketplace metrics', async () => {
     const res = await request(server())
       .get('/v1/admin/metrics/overview')

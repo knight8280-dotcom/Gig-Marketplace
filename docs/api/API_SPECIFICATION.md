@@ -170,10 +170,20 @@ Catalog (type → recipient): `NEW_NEARBY_JOB`→W, `JOB_ACCEPTED`→C, `JOB_FIL
 | read | lists, discovery | 600 / 5 min |
 | webhooks | Stripe | signature-verified, no user limit |
 
-## Files (upload flow)
+## Files (implemented upload flow)
 
-1. `POST /files/intents` `{kind, content_type, byte_size}` → validates type/size limits → returns `file_id` + short-lived signed upload URL (object storage).
-2. Client uploads directly to storage.
-3. `POST /files/:id/complete` → server verifies object exists, checks magic bytes/content type, records sha256, queues scan/thumbnailing.
-4. File references (`job_photos`, messages, evidence) accept only files owned by the caller in `UPLOADED` state.
-5. Reads use short-lived signed URLs; access control enforced per referencing entity (e.g., message images visible to conversation participants only).
+1. `POST /files?kind=JOB_PHOTO|PROFILE_PHOTO` — multipart (`file` field), ≤10 MB; server validates by **magic bytes** (JPEG/PNG/WebP only, extensions/claimed types never trusted), records sha256, stores under a server-generated UUID key via the storage adapter (local disk in dev/single-server; S3-compatible adapter behind the same interface before horizontal scaling).
+2. `GET /files/:id/content` — authenticated; access rules per kind: owner always; job photos to viewers of the job; profile photos to any authenticated user. 404 masks existence.
+3. `POST /jobs/:id/photos {file_id}` — owner attaches own JOB_PHOTO uploads (max 8) while the job is editable/open; photo ids are returned in job views as `photo_file_ids`.
+4. `POST /me/profile-photo {file_id, profile}` — sets customer/worker profile photo.
+
+The original signed-URL direct-to-storage design remains the target once object storage is in place; the endpoint contract above stays stable (the upload step changes transport only).
+
+## Additional implemented endpoints (kept in sync)
+
+- `POST /auth/2fa/setup` / `POST /auth/2fa/enable {code}` — TOTP enrollment; login then requires `totp_code` (errors `TOTP_REQUIRED` / `TOTP_INVALID`).
+- `POST /me/payment-methods/sync-setup-intent {setup_intent_id}` — adopt the card from a client-confirmed SetupIntent (payment-sheet flow).
+- `POST /jobs/:id/tip {assignment_id, amount_cents}` — post-completion tip; full amount to the worker, no platform fee, one per assignment.
+- `POST /jobs/:id/retry-payment` — customer retries a failed charge after fixing their card.
+- `GET /jobs/:id/cancellation-preview` — policy consequences before confirming.
+- `POST /geo/geocode {query}` — forward geocoding via provider adapter (Nominatim default).

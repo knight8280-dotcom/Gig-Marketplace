@@ -4,11 +4,15 @@ import { RequestUser } from '../../common/auth.decorators';
 
 export type NotificationCategory = 'TRANSACTIONAL' | 'JOB_ALERTS' | 'MARKETING';
 
+/** Expo push tokens look like ExponentPushToken[xxxx] / ExpoPushToken[xxxx]. */
+const EXPO_TOKEN_RE = /^Expo(nent)?PushToken\[.+\]$/;
+const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send';
+
 /**
- * Notification records + preference checks (Phase 14). Delivery adapters:
- * in-app records always; push delivery via Expo arrives with the mobile app —
- * until then dispatch logs through the dev adapter (clearly labeled, no fake
- * delivery claims: sent_at is only set when a channel actually accepted it).
+ * Notification records + preference checks (Phase 14). In-app records always;
+ * device push via Expo's documented push HTTP API when real Expo tokens are
+ * registered. sent_at is set only when the push service actually accepted the
+ * message — no fake delivery claims.
  */
 @Injectable()
 export class NotificationsService {
@@ -34,13 +38,55 @@ export class NotificationsService {
       );
       if (rows[0] && !rows[0].enabled) return;
     }
-    await this.db.query(
-      `INSERT INTO notifications (user_id, type, title, body, data) VALUES ($1, $2, $3, $4, $5)`,
+    const { rows } = await this.db.query<{ id: string }>(
+      `INSERT INTO notifications (user_id, type, title, body, data) VALUES ($1, $2, $3, $4, $5) RETURNING id`,
       [userId, type, title, body, JSON.stringify(data)],
     );
-    // Dev push adapter: log only. Real Expo push dispatch is wired with the
-    // mobile app (device_tokens table is ready).
-    this.logger.log(`[DEV PUSH — not actually sent] user=${userId} type=${type} title="${title}"`);
+    await this.dispatchPush(rows[0]!.id, userId, title, body, data);
+  }
+
+  /** Expo push to the user's registered devices; failures never break callers. */
+  private async dispatchPush(
+    notificationId: string,
+    userId: string,
+    title: string,
+    body: string,
+    data: Record<string, unknown>,
+  ): Promise<void> {
+    try {
+      const { rows: devices } = await this.db.query<{ token: string }>(
+        'SELECT token FROM device_tokens WHERE user_id = $1 AND disabled_at IS NULL',
+        [userId],
+      );
+      const valid = devices.map((d) => d.token).filter((t) => EXPO_TOKEN_RE.test(t));
+      if (valid.length === 0) return; // No real devices (e.g. web/dev) — in-app record only.
+
+      const res = await fetch(EXPO_PUSH_URL, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', accept: 'application/json' },
+        body: JSON.stringify(valid.map((to) => ({ to, sound: 'default', title, body, data }))),
+      });
+      const payload = (await res.json().catch(() => null)) as {
+        data?: Array<{ status: string; details?: { error?: string } }>;
+      } | null;
+      const tickets = payload?.data ?? [];
+      const accepted = res.ok && tickets.some((t) => t.status === 'ok');
+      await this.db.query(
+        `UPDATE notifications SET ${accepted ? 'sent_at' : 'failed_at'} = now() WHERE id = $1`,
+        [notificationId],
+      );
+      // Disable tokens the push service says are no longer registered.
+      for (let i = 0; i < tickets.length; i++) {
+        if (tickets[i]!.status === 'error' && tickets[i]!.details?.error === 'DeviceNotRegistered') {
+          await this.db.query('UPDATE device_tokens SET disabled_at = now() WHERE token = $1', [valid[i]]);
+        }
+      }
+    } catch (err) {
+      this.logger.error(`Push dispatch failed for user ${userId}: ${(err as Error).message}`);
+      await this.db
+        .query('UPDATE notifications SET failed_at = now() WHERE id = $1', [notificationId])
+        .catch(() => undefined);
+    }
   }
 
   async list(user: RequestUser, limit: number, cursor: string | null) {

@@ -83,6 +83,33 @@ async function tryRefresh(): Promise<boolean> {
   return refreshPromise;
 }
 
+/** Multipart image upload (expo-image-picker asset URI → /v1/files). */
+export async function uploadImage(
+  assetUri: string,
+  kind: 'JOB_PHOTO' | 'PROFILE_PHOTO',
+): Promise<{ id: string }> {
+  const { access } = await getTokens();
+  const form = new FormData();
+  if (assetUri.startsWith('data:') || assetUri.startsWith('blob:')) {
+    // Web picker returns data/blob URIs.
+    const blob = await (await fetch(assetUri)).blob();
+    form.append('file', blob, 'photo.jpg');
+  } else {
+    // Native picker returns file URIs; React Native FormData takes descriptors.
+    form.append('file', { uri: assetUri, name: 'photo.jpg', type: 'image/jpeg' } as unknown as Blob);
+  }
+  const res = await fetch(`${BASE_URL}/v1/files?kind=${kind}`, {
+    method: 'POST',
+    headers: access ? { authorization: `Bearer ${access}` } : {},
+    body: form,
+  });
+  const json = (await res.json()) as { id?: string } & ApiErrorBody;
+  if (!res.ok || !json.id) {
+    throw new ApiError(res.status, json.error?.code ?? 'INTERNAL', json.error?.message ?? 'Upload failed');
+  }
+  return { id: json.id };
+}
+
 export async function api<T>(
   path: string,
   options: { method?: string; body?: unknown; auth?: boolean } = {},

@@ -5,9 +5,11 @@ import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
 import { Field, FormError } from '@/components/form';
 import { PrimaryButton } from '@/components/primary-button';
+import * as ImagePicker from 'expo-image-picker';
 import { useCategories, useJobInvalidation } from '@/api/hooks';
 import { useDeviceLocation } from '@/hooks/use-device-location';
-import { api, ApiError } from '@/api/client';
+import { api, ApiError, uploadImage } from '@/api/client';
+import { AuthedImage } from '@/components/authed-image';
 
 /**
  * Guided job posting (MVP form). Coordinates come from the device location
@@ -34,6 +36,28 @@ export default function PostJob() {
   const { coords, isFallback } = useDeviceLocation();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [photoIds, setPhotoIds] = useState<string[]>([]);
+  const [uploading, setUploading] = useState(false);
+
+  const pickPhoto = async () => {
+    setError(null);
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      quality: 0.7,
+      allowsMultipleSelection: false,
+    });
+    const asset = result.assets?.[0];
+    if (result.canceled || !asset) return;
+    setUploading(true);
+    try {
+      const uploaded = await uploadImage(asset.uri, 'JOB_PHOTO');
+      setPhotoIds((ids) => [...ids, uploaded.id]);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Photo upload failed');
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const submit = async () => {
     setError(null);
@@ -67,6 +91,11 @@ export default function PostJob() {
           pay_cents: payCents,
         },
       });
+      for (const fileId of photoIds) {
+        await api(`/jobs/${job.id}/photos`, { method: 'POST', body: { file_id: fileId } }).catch(
+          () => undefined, // photo attach failures never block the post
+        );
+      }
       invalidate(job.id);
       router.dismiss();
       router.push(`/job/${job.id}`);
@@ -148,6 +177,20 @@ export default function PostJob() {
           keyboardType="decimal-pad"
         />
 
+        <ThemedText type="smallBold">Photos (optional)</ThemedText>
+        <View style={styles.photoRow}>
+          {photoIds.map((id) => (
+            <AuthedImage key={id} fileId={id} style={styles.photo} />
+          ))}
+          <PrimaryButton
+            label={uploading ? 'Uploading…' : 'Add photo'}
+            variant="secondary"
+            onPress={pickPhoto}
+            loading={uploading}
+            disabled={photoIds.length >= 8}
+          />
+        </View>
+
         <ThemedText type="small" style={styles.note}>
           {isFallback
             ? 'Location unavailable — the job pin will use the pilot-city default. Enable location for an accurate pin.'
@@ -197,4 +240,6 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   stateField: { width: 100 },
   note: { opacity: 0.6 },
+  photoRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, alignItems: 'center' },
+  photo: { width: 72, height: 72, borderRadius: 8 },
 });

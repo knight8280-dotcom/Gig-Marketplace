@@ -8,6 +8,7 @@ import { DomainError } from '../../common/errors';
 import { generateNumericCode, generateOpaqueToken, sha256Hex } from '../../common/crypto';
 import { UsersRepository, UserRow } from '../users/users.repository';
 import { TokenService } from './token.service';
+import { TotpService } from './totp.service';
 import { EMAIL_SENDER, EmailSender, SMS_SENDER, SmsSender } from './adapters/messaging.adapters';
 
 export interface TokenPair {
@@ -30,6 +31,7 @@ export class AuthService {
     private readonly db: DatabaseService,
     private readonly users: UsersRepository,
     private readonly tokens: TokenService,
+    private readonly totp: TotpService,
     @Inject(EMAIL_SENDER) private readonly email: EmailSender,
     @Inject(SMS_SENDER) private readonly sms: SmsSender,
   ) {}
@@ -52,7 +54,7 @@ export class AuthService {
     return { user, tokens: await this.issueTokenPair(user) };
   }
 
-  async login(email: string, password: string): Promise<{ user: UserRow; tokens: TokenPair }> {
+  async login(email: string, password: string, totpCode?: string): Promise<{ user: UserRow; tokens: TokenPair }> {
     const user = await this.users.findByEmail(email);
     // Verify against a dummy hash when the user is unknown so response timing
     // does not reveal account existence.
@@ -61,6 +63,8 @@ export class AuthService {
     if (!user || !valid) {
       throw new DomainError('INVALID_CREDENTIALS', 'Invalid email or password', 401);
     }
+    // Second factor is checked only after the password succeeded (no oracle).
+    await this.totp.verifyAtLogin(user, totpCode);
     if (user.status === 'SUSPENDED' || user.status === 'DELETED') {
       throw new DomainError('FORBIDDEN', 'This account is not active', 403);
     }

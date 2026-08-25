@@ -21,6 +21,8 @@ import { DisputesModule } from './modules/disputes/disputes.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { ReportsModule } from './modules/reports/reports.module';
 import { AdminModule } from './modules/admin/admin.module';
+import { FilesModule } from './modules/files/files.module';
+import { GeoModule } from './modules/geo/geo.module';
 import { GlobalExceptionFilter } from './common/http-exception.filter';
 import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
@@ -36,8 +38,12 @@ import { DomainError } from './common/errors';
     DatabaseModule,
     // Default read-class limit; strict per-route overrides on auth endpoints.
     // In-memory storage for MVP single instance; swap to Redis storage when
-    // scaling horizontally (SYSTEM_ARCHITECTURE §12).
-    ThrottlerModule.forRoot([{ name: 'default', ttl: 5 * 60 * 1000, limit: 600 }]),
+    // scaling horizontally (SYSTEM_ARCHITECTURE §12). Disabled under tests —
+    // integration suites intentionally exceed human rate limits.
+    ThrottlerModule.forRoot({
+      throttlers: [{ name: 'default', ttl: 5 * 60 * 1000, limit: 600 }],
+      skipIf: () => process.env.NODE_ENV === 'test',
+    }),
     AuthModule,
     UsersModule,
     CustomersModule,
@@ -55,6 +61,8 @@ import { DomainError } from './common/errors';
     NotificationsModule,
     ReportsModule,
     AdminModule,
+    FilesModule,
+    GeoModule,
   ],
   controllers: [HealthController],
   providers: [

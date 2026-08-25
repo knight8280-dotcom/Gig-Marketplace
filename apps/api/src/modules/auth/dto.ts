@@ -1,4 +1,4 @@
-import { IsEmail, IsIn, IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import { IsEmail, IsIn, IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
 
 export class RegisterDto {
   @IsEmail()
@@ -22,6 +22,16 @@ export class LoginDto {
   @IsString()
   @MaxLength(200)
   password!: string;
+
+  /** Required when the account has TOTP 2FA enabled. */
+  @IsOptional()
+  @Matches(/^\d{6}$/)
+  totp_code?: string;
+}
+
+export class TotpEnableDto {
+  @Matches(/^\d{6}$/)
+  code!: string;
 }
 
 export class RefreshDto {

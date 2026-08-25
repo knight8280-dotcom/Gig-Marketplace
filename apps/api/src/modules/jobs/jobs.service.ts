@@ -554,18 +554,24 @@ export class JobsService {
       assignment !== null &&
       (ACTIVE_ASSIGNMENT_STATES as readonly string[]).concat('COMPLETED').includes(assignment.state);
 
+    const { rows: photos } = await this.db.query<{ file_id: string }>(
+      'SELECT file_id FROM job_photos WHERE job_id = $1 ORDER BY sort_order',
+      [jobId],
+    );
+    const photo_file_ids = photos.map((p) => p.file_id);
+
     if (isOwner || isAdmin) {
       const assignments = await this.jobs.listAssignmentsForJob(jobId);
-      return { ...this.fullJobView(job), assignments };
+      return { ...this.fullJobView(job), assignments, photo_file_ids };
     }
     if (isActiveWorker) {
-      return { ...this.fullJobView(job), my_assignment: assignment };
+      return { ...this.fullJobView(job), my_assignment: assignment, photo_file_ids };
     }
     // Everyone else: approximate location only, no address/access details.
     if (!(OPEN_STATES as string[]).includes(job.state)) {
       throw DomainError.notFound('Job not found');
     }
-    return this.publicJobView(job);
+    return { ...this.publicJobView(job), photo_file_ids };
   }
 
   fullJobView(job: JobRow): Record<string, unknown> {

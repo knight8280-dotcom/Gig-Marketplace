@@ -15,6 +15,8 @@ import {
 import { useAuth } from '@/state/auth';
 import { api, ApiError } from '@/api/client';
 import { formatMoney } from '@/api/types';
+import { AuthedImage } from '@/components/authed-image';
+import { useQuery } from '@tanstack/react-query';
 
 /** Role-aware job detail: workers accept/execute; customers monitor/confirm. */
 export default function JobDetail() {
@@ -27,6 +29,15 @@ export default function JobDetail() {
   const invalidate = useJobInvalidation();
   const [error, setError] = useState<string | null>(null);
   const [rated, setRated] = useState(false);
+  const [tipped, setTipped] = useState(false);
+
+  const isOwnerView = job.data?.assignments !== undefined;
+  const payments = useQuery({
+    queryKey: ['job-payments', id],
+    queryFn: () => api<{ items: Array<{ kind: string; status: string }> }>(`/me/payments?job_id=${id}`),
+    enabled: isOwnerView,
+  });
+  const latestCharge = payments.data?.items.find((p) => p.kind === 'JOB_PAYMENT');
 
   if (job.isLoading) return <ThemedView style={styles.center} />;
   if (!job.data) {
@@ -37,7 +48,7 @@ export default function JobDetail() {
     );
   }
 
-  const j = job.data;
+  const j = job.data as typeof job.data & { photo_file_ids?: string[] };
   const isOwner = j.assignments !== undefined; // owner view includes assignments
   const assignment = j.my_assignment;
   const start = j.scheduled_start_at ? new Date(j.scheduled_start_at).toLocaleString() : 'ASAP';
@@ -86,6 +97,14 @@ export default function JobDetail() {
           {formatMoney(j.pay_cents, j.pay_type)} · {j.workers_filled}/{j.workers_needed} workers · {start}
         </ThemedText>
         <ThemedText style={styles.description}>{j.description}</ThemedText>
+
+        {(j.photo_file_ids?.length ?? 0) > 0 ? (
+          <View style={styles.photoRow}>
+            {j.photo_file_ids!.map((fileId) => (
+              <AuthedImage key={fileId} fileId={fileId} style={styles.photo} />
+            ))}
+          </View>
+        ) : null}
 
         {j.address_line1 ? (
           <Section title="Location">
@@ -196,6 +215,64 @@ export default function JobDetail() {
                 <RatingRow key={a.id} label="Rate your worker" onRate={(stars) => submitRating(a.id, stars)} />
               ))
           : null}
+
+        {/* Payment retry when the charge failed (customer fixes card first). */}
+        {isOwner && latestCharge?.status === 'FAILED' ? (
+          <View style={styles.section}>
+            <ThemedText type="small" style={styles.paymentWarning}>
+              Your payment could not be processed. Add or update your card, then retry.
+            </ThemedText>
+            <PrimaryButton
+              label="Update payment method"
+              variant="secondary"
+              onPress={() => router.push('/payment-methods')}
+            />
+            <PrimaryButton
+              label="Retry payment"
+              onPress={() =>
+                run(async () => {
+                  await api(`/jobs/${j.id}/retry-payment`, { method: 'POST', body: {} });
+                  await payments.refetch();
+                })
+              }
+            />
+          </View>
+        ) : null}
+
+        {/* Tips after completion (never mandatory). */}
+        {isOwner && ['COMPLETED', 'PAYMENT_PENDING', 'PAID', 'CLOSED'].includes(j.state) && !tipped
+          ? j.assignments
+              ?.filter((a) => a.state === 'COMPLETED')
+              .slice(0, 1)
+              .map((a) => (
+                <View key={a.id} style={styles.section}>
+                  <ThemedText type="smallBold">Add a tip? (optional)</ThemedText>
+                  <View style={styles.stars}>
+                    {[500, 1000, 2000].map((cents) => (
+                      <PrimaryButton
+                        key={cents}
+                        label={`$${cents / 100}`}
+                        variant="secondary"
+                        onPress={() =>
+                          run(async () => {
+                            await api(`/jobs/${j.id}/tip`, {
+                              method: 'POST',
+                              body: { assignment_id: a.id, amount_cents: cents },
+                            });
+                            setTipped(true);
+                          })
+                        }
+                      />
+                    ))}
+                  </View>
+                </View>
+              ))
+          : null}
+        {tipped ? (
+          <ThemedText type="small" style={styles.dim}>
+            Tip sent — the full amount goes to your worker.
+          </ThemedText>
+        ) : null}
         {isOwner && ['POSTED', 'MATCHING', 'PARTIALLY_FILLED', 'FILLED'].includes(j.state) ? (
           <PrimaryButton
             label="Cancel job"
@@ -254,4 +331,7 @@ const styles = StyleSheet.create({
   section: { gap: 6, marginTop: 4 },
   dim: { opacity: 0.6 },
   stars: { flexDirection: 'row', gap: 8 },
+  photoRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  photo: { width: 96, height: 96, borderRadius: 10 },
+  paymentWarning: { color: '#d97706' },
 });

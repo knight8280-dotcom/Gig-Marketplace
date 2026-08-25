@@ -20,6 +20,8 @@ export interface StripeGateway {
   createCustomer(email: string, userId: string): Promise<{ id: string }>;
   createSetupIntent(customerId: string): Promise<{ id: string; client_secret: string }>;
   getPaymentMethodCustomer(paymentMethodId: string): Promise<string | null>;
+  /** After the client confirms a SetupIntent, read its resulting payment method. */
+  getSetupIntent(setupIntentId: string): Promise<{ status: string; payment_method: string | null; customer: string | null }>;
   /** Create AND confirm an off-session PaymentIntent (charge at fill). */
   chargeCustomer(params: {
     amountCents: number;
@@ -97,6 +99,15 @@ export class RealStripeGateway implements StripeGateway {
   async getPaymentMethodCustomer(paymentMethodId: string): Promise<string | null> {
     const pm = await this.stripe.paymentMethods.retrieve(paymentMethodId);
     return typeof pm.customer === 'string' ? pm.customer : (pm.customer?.id ?? null);
+  }
+
+  async getSetupIntent(setupIntentId: string) {
+    const si = await this.stripe.setupIntents.retrieve(setupIntentId);
+    return {
+      status: si.status,
+      payment_method: typeof si.payment_method === 'string' ? si.payment_method : (si.payment_method?.id ?? null),
+      customer: typeof si.customer === 'string' ? si.customer : (si.customer?.id ?? null),
+    };
   }
 
   async chargeCustomer(params: {

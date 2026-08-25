@@ -12,6 +12,8 @@ export interface UserRow {
   roles: UserRole[];
   status: UserStatus;
   suspended_reason: string | null;
+  totp_secret: string | null;
+  totp_enabled_at: Date | null;
   created_at: Date;
   updated_at: Date;
 }

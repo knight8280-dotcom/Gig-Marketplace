@@ -4,6 +4,18 @@ All notable changes to this project are documented here. Format loosely follows 
 
 ## [Unreleased]
 
+### Prototype hardening pass — files, 2FA, tips, providers, payment UI (2026-08-25)
+
+**Added**
+- **Files module**: multipart photo upload validated by magic bytes (JPEG/PNG/WebP, ≤10 MB, sha256 recorded), storage adapter (local disk now; S3-compatible behind the same interface before scaling), per-kind access rules with 404 masking, job photo attachments (max 8) surfaced in job views, profile photos; mobile photo picking/upload in post-a-job and photo display on job detail.
+- **TOTP 2FA**: RFC 6238 implementation on node:crypto (verified against RFC test vectors), enrollment endpoints, enforcement at sign-in (`TOTP_REQUIRED`/`TOTP_INVALID`), admin dashboard enrollment UI + code-aware login.
+- **Tips**: post-completion tips ($1–$500), full amount to the worker with zero platform fee, one per assignment (ledger-unique), honest `PAYMENT_METHOD_REQUIRED` without a card; mobile tip buttons on completed jobs.
+- **Real providers behind existing interfaces**: Twilio SMS (REST), SMTP email (nodemailer), Expo push via the documented push HTTP API (sent_at only on acceptance; dead tokens auto-disabled), Nominatim geocoding (`POST /geo/geocode`, keyless, stub in tests).
+- **Payment UX**: Stripe payment-sheet flow (SetupIntent create → native sheet → server-side sync with ownership check) with platform-split native/web modules; Connect onboarding launcher + status refresh in mobile; no-card banner on customer home; failed-charge retry flow on job detail; worker setup screen (bio, radius, transportation, skills, categories).
+- 8 new integration tests (63 total): upload validation incl. spoofed content, photo attachment ownership + viewer access, 2FA enrollment/enforcement, tip flow (fee-free, once-only, stranger-blocked), setup-intent sync incl. cross-user rejection.
+
+**Verified in browser** (computer-driven): photo upload end-to-end, payment banner + honest web card-entry messaging, worker setup editing, payout section, admin 2FA enrollment UI, tip attempt without card correctly refused.
+
 ### Prototype completion + hands-on review (2026-08-25)
 
 **Added**

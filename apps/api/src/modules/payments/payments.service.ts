@@ -85,10 +85,35 @@ export class PaymentsService {
     return customer.id;
   }
 
-  async createSetupIntent(user: RequestUser): Promise<{ client_secret: string }> {
+  async createSetupIntent(user: RequestUser): Promise<{ id: string; client_secret: string }> {
+    try {
+      const customerId = await this.ensureStripeCustomer(user);
+      const si = await this.stripe.createSetupIntent(customerId);
+      return { id: si.id, client_secret: si.client_secret };
+    } catch (err) {
+      this.logger.error(`SetupIntent creation failed: ${(err as Error).message}`);
+      throw new DomainError(
+        'PAYMENT_FAILED',
+        'Payments are not available right now (Stripe is not configured in this environment)',
+        503,
+      );
+    }
+  }
+
+  /** After the client confirms the SetupIntent (payment sheet), adopt its card as default. */
+  async syncFromSetupIntent(user: RequestUser, setupIntentId: string): Promise<void> {
     const customerId = await this.ensureStripeCustomer(user);
-    const si = await this.stripe.createSetupIntent(customerId);
-    return { client_secret: si.client_secret };
+    const si = await this.stripe.getSetupIntent(setupIntentId);
+    if (si.customer !== customerId) {
+      throw DomainError.validation('This setup intent does not belong to your account');
+    }
+    if (si.status !== 'succeeded' || !si.payment_method) {
+      throw DomainError.conflict('The card setup has not completed yet');
+    }
+    await this.db.query(
+      'UPDATE payment_customers SET default_payment_method = $2, updated_at = now() WHERE user_id = $1',
+      [user.id, si.payment_method],
+    );
   }
 
   /** Client reports the confirmed PaymentMethod; we verify it belongs to this customer. */
@@ -120,18 +145,27 @@ export class PaymentsService {
       'SELECT stripe_account_id FROM payout_accounts WHERE worker_user_id = $1',
       [user.id],
     );
-    if (rows[0]) {
-      accountId = rows[0].stripe_account_id;
-    } else {
-      const account = await this.stripe.createExpressAccount(user.email, user.id);
-      accountId = account.id;
-      await this.db.query(
-        `INSERT INTO payout_accounts (worker_user_id, stripe_account_id) VALUES ($1, $2)
-         ON CONFLICT (worker_user_id) DO NOTHING`,
-        [user.id, accountId],
+    try {
+      if (rows[0]) {
+        accountId = rows[0].stripe_account_id;
+      } else {
+        const account = await this.stripe.createExpressAccount(user.email, user.id);
+        accountId = account.id;
+        await this.db.query(
+          `INSERT INTO payout_accounts (worker_user_id, stripe_account_id) VALUES ($1, $2)
+           ON CONFLICT (worker_user_id) DO NOTHING`,
+          [user.id, accountId],
+        );
+      }
+      return await this.stripe.createAccountOnboardingLink(accountId, refreshUrl, returnUrl);
+    } catch (err) {
+      this.logger.error(`Onboarding link failed: ${(err as Error).message}`);
+      throw new DomainError(
+        'PAYMENT_FAILED',
+        'Payout setup is not available right now (Stripe is not configured in this environment)',
+        503,
       );
     }
-    return this.stripe.createAccountOnboardingLink(accountId, refreshUrl, returnUrl);
   }
 
   async refreshPayoutAccountStatus(workerUserId: string): Promise<Record<string, unknown> | null> {
@@ -523,6 +557,112 @@ export class PaymentsService {
         }
       }
     }
+  }
+
+  // ── Tips (no platform fee — PAYMENT_MODEL) ─────────────────────────────────
+
+  async tipWorker(
+    customer: RequestUser,
+    jobId: string,
+    assignmentId: string,
+    amountCents: number,
+  ): Promise<{ status: string }> {
+    const job = await this.jobs.findById(jobId);
+    if (!job || job.customer_user_id !== customer.id) throw DomainError.notFound('Job not found');
+    if (!['COMPLETED', 'PAYMENT_PENDING', 'PAID', 'CLOSED'].includes(job.state)) {
+      throw DomainError.conflict('Tips open once the job is completed');
+    }
+    const assignment = await this.jobs.findAssignmentById(assignmentId);
+    if (!assignment || assignment.job_id !== jobId || assignment.state !== 'COMPLETED') {
+      throw DomainError.notFound('Assignment not found');
+    }
+
+    const { rows: pc } = await this.db.query<{ stripe_customer_id: string; default_payment_method: string | null }>(
+      'SELECT stripe_customer_id, default_payment_method FROM payment_customers WHERE user_id = $1',
+      [customer.id],
+    );
+    if (!pc[0]?.default_payment_method) {
+      throw new DomainError('PAYMENT_METHOD_REQUIRED', 'Add a payment method to tip', 402);
+    }
+
+    // One tip per assignment (ledger unique key); retries replay safely.
+    const { rows } = await this.db.query<{ id: string }>(
+      `INSERT INTO payments (job_id, customer_user_id, kind, status, amount_cents, currency, idempotency_key)
+       VALUES ($1, $2, 'TIP', 'REQUIRES_PAYMENT', $3, $4, $5)
+       ON CONFLICT (idempotency_key) DO NOTHING RETURNING id`,
+      [jobId, customer.id, amountCents, job.currency, `assignment:${assignmentId}:tip:v1`],
+    );
+    if (!rows[0]) throw DomainError.conflict('A tip was already sent for this job');
+    const paymentId = rows[0].id;
+
+    const result = await this.stripe.chargeCustomer({
+      amountCents,
+      currency: job.currency,
+      customerId: pc[0].stripe_customer_id,
+      paymentMethodId: pc[0].default_payment_method,
+      idempotencyKey: `payment:${paymentId}:charge`,
+      metadata: { job_id: jobId, payment_id: paymentId, kind: 'tip' },
+    });
+    if (result.status !== 'succeeded') {
+      await this.db.query(
+        `UPDATE payments SET status = 'FAILED', stripe_payment_intent_id = $2,
+           failure_code = $3, updated_at = now() WHERE id = $1`,
+        [paymentId, result.id, result.failure_code ?? 'unknown'],
+      );
+      throw new DomainError('PAYMENT_FAILED', 'The tip could not be charged', 402);
+    }
+    await this.db.query(
+      `UPDATE payments SET status = 'SUCCEEDED', stripe_payment_intent_id = $2,
+         stripe_charge_id = $3, updated_at = now() WHERE id = $1`,
+      [paymentId, result.id, result.latest_charge_id],
+    );
+
+    // Pass the full tip to the worker (fee-free), transferring when possible.
+    const { rows: payoutRows } = await this.db.query<{ id: string }>(
+      `INSERT INTO payouts (job_id, assignment_id, worker_user_id, kind, status, amount_cents, currency, idempotency_key)
+       VALUES ($1, $2, $3, 'TIP', 'PENDING', $4, $5, $6)
+       ON CONFLICT (assignment_id, kind) DO NOTHING RETURNING id`,
+      [jobId, assignmentId, assignment.worker_user_id, amountCents, job.currency,
+       `assignment:${assignmentId}:tip-payout:v1`],
+    );
+    if (payoutRows[0]) {
+      const { rows: account } = await this.db.query<{ stripe_account_id: string; payouts_enabled: boolean }>(
+        'SELECT stripe_account_id, payouts_enabled FROM payout_accounts WHERE worker_user_id = $1',
+        [assignment.worker_user_id],
+      );
+      if (account[0]?.payouts_enabled) {
+        try {
+          const transfer = await this.stripe.createTransfer({
+            amountCents,
+            currency: job.currency,
+            destinationAccountId: account[0].stripe_account_id,
+            idempotencyKey: `assignment:${assignmentId}:tip-payout:v1`,
+            metadata: { job_id: jobId, kind: 'tip' },
+          });
+          await this.db.query(
+            `UPDATE payouts SET status = 'IN_TRANSIT', stripe_transfer_id = $2, updated_at = now() WHERE id = $1`,
+            [payoutRows[0].id, transfer.id],
+          );
+        } catch {
+          await this.db.query(
+            `UPDATE payouts SET status = 'FAILED', failure_code = 'gateway_error', updated_at = now() WHERE id = $1`,
+            [payoutRows[0].id],
+          );
+        }
+      } else {
+        await this.db.query(
+          `UPDATE payouts SET status = 'FAILED', failure_code = 'payout_account_incomplete', updated_at = now() WHERE id = $1`,
+          [payoutRows[0].id],
+        );
+      }
+    }
+    await this.recordPaymentEvent(jobId, 'payment.tip', { assignment_id: assignmentId, amount_cents: amountCents });
+    this.events.emit('payout.released', {
+      workerUserId: assignment.worker_user_id,
+      jobId,
+      amountCents,
+    });
+    return { status: 'SUCCEEDED' };
   }
 
   /** Fixed-amount refund (dispute resolutions). Ledger-keyed, idempotent. */

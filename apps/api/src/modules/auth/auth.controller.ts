@@ -2,6 +2,7 @@ import { Body, Controller, HttpCode, Post } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { CurrentUser, Public, RequestUser } from '../../common/auth.decorators';
 import { AuthService, TokenPair } from './auth.service';
+import { TotpService } from './totp.service';
 import {
   ForgotPasswordDto,
   LoginDto,
@@ -10,6 +11,7 @@ import {
   RefreshDto,
   RegisterDto,
   ResetPasswordDto,
+  TotpEnableDto,
   VerifyEmailDto,
 } from './dto';
 
@@ -23,7 +25,10 @@ const AUTH_STRICT = { default: { limit: 10, ttl: 15 * 60 * 1000 } };
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly auth: AuthService) {}
+  constructor(
+    private readonly auth: AuthService,
+    private readonly totp: TotpService,
+  ) {}
 
   @Public()
   @Throttle(AUTH_STRICT)
@@ -38,8 +43,22 @@ export class AuthController {
   @HttpCode(200)
   @Post('login')
   async login(@Body() dto: LoginDto): Promise<AuthResponse> {
-    const { user, tokens } = await this.auth.login(dto.email, dto.password);
+    const { user, tokens } = await this.auth.login(dto.email, dto.password, dto.totp_code);
     return { user: { id: user.id, email: user.email, roles: user.roles }, tokens };
+  }
+
+  /** TOTP 2FA enrollment (authenticated): setup returns the secret, enable verifies a code. */
+  @HttpCode(200)
+  @Post('2fa/setup')
+  totpSetup(@CurrentUser() user: RequestUser) {
+    return this.totp.setup(user.id, user.email);
+  }
+
+  @HttpCode(200)
+  @Post('2fa/enable')
+  async totpEnable(@CurrentUser() user: RequestUser, @Body() dto: TotpEnableDto) {
+    await this.totp.enable(user.id, dto.code);
+    return { enabled: true };
   }
 
   @Public()

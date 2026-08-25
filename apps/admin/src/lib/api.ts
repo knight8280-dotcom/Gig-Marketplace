@@ -76,17 +76,22 @@ export async function api<T>(
   return json as T;
 }
 
-export async function login(email: string, password: string): Promise<void> {
+export class TotpRequiredError extends Error {}
+
+export async function login(email: string, password: string, totpCode?: string): Promise<void> {
   const res = await fetch(`${BASE_URL}/v1/auth/login`, {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ email, password }),
+    body: JSON.stringify({ email, password, totp_code: totpCode || undefined }),
   });
   const json = (await res.json()) as {
-    error?: { message: string };
+    error?: { code?: string; message: string };
     user?: { roles: string[] };
     tokens?: { access_token: string; refresh_token: string };
   };
+  if (json.error?.code === 'TOTP_REQUIRED' || json.error?.code === 'TOTP_INVALID') {
+    throw new TotpRequiredError(json.error.message);
+  }
   if (!res.ok || !json.tokens || !json.user) {
     throw new Error(json.error?.message ?? 'Sign-in failed');
   }

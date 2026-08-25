@@ -36,6 +36,18 @@ export function ProfileScreen() {
         ) : null}
 
         <View style={styles.actions}>
+          {user.roles.includes('WORKER') ? (
+            <PrimaryButton
+              label="Worker setup (skills, radius, categories)"
+              variant="secondary"
+              onPress={() => router.push('/worker-setup')}
+            />
+          ) : null}
+          <PrimaryButton
+            label="Payments & payouts"
+            variant="secondary"
+            onPress={() => router.push('/payment-methods')}
+          />
           {hasBothRoles ? (
             <PrimaryButton
               label={`Switch to ${otherMode === 'WORKER' ? 'worker' : 'customer'} mode`}
