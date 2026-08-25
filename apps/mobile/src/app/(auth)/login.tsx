@@ -3,6 +3,7 @@ import { KeyboardAvoidingView, Platform, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
+import { BackendNotice } from '@/components/backend-notice';
 import { Field, FormError } from '@/components/form';
 import { PrimaryButton } from '@/components/primary-button';
 import { useAuth } from '@/state/auth';
@@ -32,6 +33,7 @@ export default function Login() {
     <ThemedView style={styles.container}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.form}>
         <ThemedText type="subtitle">Sign in</ThemedText>
+        <BackendNotice />
         <Field
           label="Email"
           autoCapitalize="none"
