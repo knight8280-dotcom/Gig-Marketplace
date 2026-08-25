@@ -23,6 +23,16 @@ export class PaymentsListeners {
     }
   }
 
+  /** Partially-staffed jobs that start anyway must be charged too (idempotent). */
+  @OnEvent('job.started', { async: true })
+  async onJobStarted(payload: { jobId: string }): Promise<void> {
+    try {
+      await this.payments.chargeForJob(payload.jobId);
+    } catch (err) {
+      this.logger.error(`chargeForJob on start (${payload.jobId}) failed: ${(err as Error).message}`);
+    }
+  }
+
   @OnEvent('job.completion_confirmed', { async: true })
   async onCompletionConfirmed(payload: { jobId: string }): Promise<void> {
     try {

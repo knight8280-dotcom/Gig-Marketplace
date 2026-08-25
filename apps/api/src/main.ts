@@ -12,6 +12,14 @@ async function bootstrap(): Promise<void> {
   const app = await NestFactory.create(AppModule, { rawBody: true });
   app.setGlobalPrefix('v1', { exclude: ['healthz', 'readyz'] });
 
+  // Browser clients: admin dashboard + Expo web (dev). Origins are an
+  // explicit allow-list from env — never a wildcard with credentials.
+  const corsOrigins = (process.env.CORS_ORIGINS ?? 'http://localhost:3001,http://localhost:8081')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+  app.enableCors({ origin: corsOrigins });
+
   const port = Number(process.env.PORT ?? 3000);
   // Bind 0.0.0.0 so containerized/PaaS environments can route traffic.
   await app.listen(port, '0.0.0.0');

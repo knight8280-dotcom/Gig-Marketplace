@@ -85,6 +85,8 @@ Set `EXPO_PUBLIC_API_URL` in `apps/mobile/.env` to your machine's LAN IP so a de
 pnpm --filter @gig/admin dev       # http://localhost:3001
 ```
 
+Sign in with the seeded `admin@example.test` / `devpassword123`.
+
 ## 8. Stripe webhooks in dev (Phase 10+)
 
 ```bash

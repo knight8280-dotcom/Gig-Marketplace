@@ -408,6 +408,10 @@ export class JobsService {
     });
     if (result.state === to) {
       this.events.emit('assignment.transition', { jobId: result.job_id, assignmentId, to });
+      if (to === 'STARTED') {
+        // Triggers charging for partially-staffed jobs that begin work.
+        this.events.emit('job.started', { jobId: result.job_id });
+      }
     }
     return result;
   }

@@ -1,12 +1,12 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { router } from 'expo-router';
-import * as Location from 'expo-location';
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
 import { Field, FormError } from '@/components/form';
 import { PrimaryButton } from '@/components/primary-button';
 import { useCategories, useJobInvalidation } from '@/api/hooks';
+import { useDeviceLocation } from '@/hooks/use-device-location';
 import { api, ApiError } from '@/api/client';
 
 /**
@@ -31,18 +31,9 @@ export default function PostJob() {
   const [workers, setWorkers] = useState('1');
   const [payType, setPayType] = useState<'FLAT' | 'HOURLY'>('FLAT');
   const [payDollars, setPayDollars] = useState('');
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
+  const { coords, isFallback } = useDeviceLocation();
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
-
-  useEffect(() => {
-    (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') return;
-      const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
-      setCoords({ lat: position.coords.latitude, lng: position.coords.longitude });
-    })();
-  }, []);
 
   const submit = async () => {
     setError(null);
@@ -158,7 +149,9 @@ export default function PostJob() {
         />
 
         <ThemedText type="small" style={styles.note}>
-          The job pin uses your current location. Map-pin placement: Coming Soon.
+          {isFallback
+            ? 'Location unavailable — the job pin will use the pilot-city default. Enable location for an accurate pin.'
+            : 'The job pin uses your current location. Map-pin placement: Coming Soon.'}
         </ThemedText>
         <FormError message={error} />
         <PrimaryButton

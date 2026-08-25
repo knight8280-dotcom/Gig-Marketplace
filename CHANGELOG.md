@@ -4,6 +4,23 @@ All notable changes to this project are documented here. Format loosely follows 
 
 ## [Unreleased]
 
+### Prototype completion + hands-on review (2026-08-25)
+
+**Added**
+- Admin dashboard (`apps/admin`, Next.js 16): overview KPIs, restricted-work review queue, user suspend/restore, job investigation (assignments + payments + immutable timeline), dispute evidence review + resolution, safety reports, payment/payout ledgers, category management, live platform settings, audit-log viewer.
+- Mobile web compatibility: localStorage token fallback (SecureStore is native-only), labeled pilot-city location fallback when GPS is unavailable, CORS allow-list on the API (`CORS_ORIGINS`).
+- Demo seeds: fully verified dev accounts (email + phone) and 4 open demo jobs around Austin.
+- Review screenshots saved as artifacts.
+
+**Fixed (found in hands-on browser review of the full stack)**
+- Timezone validation rejected non-slashed IANA zones like `UTC`, blocking job posting from browsers in UTC — regex relaxed (jobs + availability DTOs).
+- Partially-staffed jobs that started work were never charged (charge only fired at FILLED) — charging now also triggers when work starts, for the number of actually committed workers; regression test added (55 total).
+- Mobile validation errors now surface the failing field instead of a generic message.
+- Honest empty states for the admin audit log and job payments panel.
+
+**Review outcome**
+- Full golden loop verified in the browser end-to-end: worker discovers → accepts (address revealed post-acceptance) → en-route → arrived → start → complete → message → customer confirms → rates 5★; customer posts new job → matching fan-out notifies the nearby worker in Activity; admin oversees via KPIs, timeline, users, categories, settings.
+
 ### Mobile app — core screens (2026-08-25)
 
 **Added**

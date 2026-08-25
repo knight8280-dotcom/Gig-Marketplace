@@ -1,36 +1,20 @@
-import { useEffect, useState } from 'react';
 import { FlatList, StyleSheet, Switch, View } from 'react-native';
-import * as Location from 'expo-location';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { ThemedView } from '@/components/themed-view';
 import { ThemedText } from '@/components/themed-text';
 import { EmptyState, JobCardView } from '@/components/job-card';
 import { useEarnings, useNearbyJobs, useWorkerProfile } from '@/api/hooks';
+import { useDeviceLocation } from '@/hooks/use-device-location';
 import { api } from '@/api/client';
 import { formatMoney } from '@/api/types';
 
 export default function WorkerHome() {
   const qc = useQueryClient();
-  const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
-  const [locationDenied, setLocationDenied] = useState(false);
+  const { coords, isFallback, ready } = useDeviceLocation();
 
   const profile = useWorkerProfile(true);
   const earnings = useEarnings(true);
   const nearby = useNearbyJobs(coords);
-
-  useEffect(() => {
-    (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        setLocationDenied(true);
-        return;
-      }
-      const position = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-      setCoords({ lat: position.coords.latitude, lng: position.coords.longitude });
-    })();
-  }, []);
 
   const toggleAvailability = useMutation({
     mutationFn: (availableNow: boolean) =>
@@ -67,28 +51,27 @@ export default function WorkerHome() {
       <ThemedText type="smallBold" style={styles.sectionTitle}>
         Nearby jobs
       </ThemedText>
-      {locationDenied ? (
-        <EmptyState
-          title="Location permission needed"
-          hint="Allow location access to see jobs near you."
-        />
-      ) : (
-        <FlatList
-          data={nearby.data?.items ?? []}
-          keyExtractor={(j) => j.id}
-          refreshing={nearby.isLoading}
-          onRefresh={nearby.refetch}
-          ListEmptyComponent={
-            nearby.isLoading || coords === null ? null : (
-              <EmptyState
-                title="No jobs nearby right now"
-                hint="Check back soon, or expand your service radius in your profile."
-              />
-            )
-          }
-          renderItem={({ item }) => <JobCardView job={item} />}
-        />
-      )}
+      {isFallback ? (
+        <ThemedText type="small" style={styles.fallbackBanner}>
+          Location unavailable — showing jobs near the pilot city. Enable location for real
+          nearby results.
+        </ThemedText>
+      ) : null}
+      <FlatList
+        data={nearby.data?.items ?? []}
+        keyExtractor={(j) => j.id}
+        refreshing={nearby.isLoading}
+        onRefresh={nearby.refetch}
+        ListEmptyComponent={
+          nearby.isLoading || !ready ? null : (
+            <EmptyState
+              title="No jobs nearby right now"
+              hint="Check back soon, or expand your service radius in your profile."
+            />
+          )
+        }
+        renderItem={({ item }) => <JobCardView job={item} />}
+      />
     </ThemedView>
   );
 }
@@ -99,4 +82,11 @@ const styles = StyleSheet.create({
   availabilityRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   dim: { opacity: 0.6 },
   sectionTitle: { marginBottom: 8 },
+  fallbackBanner: {
+    opacity: 0.8,
+    backgroundColor: '#f7b73c22',
+    borderRadius: 8,
+    padding: 8,
+    marginBottom: 8,
+  },
 });

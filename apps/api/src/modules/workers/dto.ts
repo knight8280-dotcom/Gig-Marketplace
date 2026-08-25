@@ -104,8 +104,8 @@ export class AvailabilityWindowDto {
   @Max(1440)
   end_minute!: number;
 
-  /** IANA timezone, e.g. America/Chicago. */
-  @Matches(/^[A-Za-z_]+\/[A-Za-z0-9_+\-/]+$/)
+  /** IANA timezone, e.g. America/Chicago (single tokens like UTC also valid). */
+  @Matches(/^[A-Za-z_]+(?:[+-]?[0-9]+)?(?:\/[A-Za-z0-9_+\-]+){0,2}$/)
   timezone!: string;
 }
 

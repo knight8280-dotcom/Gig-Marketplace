@@ -170,11 +170,21 @@ export class PaymentsService {
 
   // ── Charge at fill ─────────────────────────────────────────────────────────
 
+  /**
+   * Charge triggers: job FILLED (normal path) or work starting on a
+   * partially-staffed job (customer chose to proceed with fewer workers).
+   * The charge covers the workers actually committed, not workers_needed.
+   */
   async chargeForJob(jobId: string): Promise<void> {
     const job = await this.jobs.findById(jobId);
-    if (!job || job.state !== 'FILLED') return;
+    if (!job || !['FILLED', 'IN_PROGRESS'].includes(job.state)) return;
 
-    const gross = this.grossPerWorker(job) * job.workers_needed;
+    const committed = (await this.jobs.listAssignmentsForJob(jobId)).filter((a) =>
+      ['ACCEPTED', 'CONFIRMED', 'EN_ROUTE', 'ARRIVED', 'STARTED', 'COMPLETED'].includes(a.state),
+    ).length;
+    if (committed === 0) return;
+
+    const gross = this.grossPerWorker(job) * committed;
     const fee = await this.computeFee(
       // Platform fee is taken from worker earnings (PAYMENT_MODEL): customer
       // pays the job total; fee snapshot recorded for the whole charge.

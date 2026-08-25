@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import * as SecureStore from 'expo-secure-store';
 
 /**
@@ -8,6 +9,25 @@ const BASE_URL = process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:3000';
 
 const ACCESS_KEY = 'gig.access_token';
 const REFRESH_KEY = 'gig.refresh_token';
+
+/**
+ * SecureStore is native-only; on web (dev/demo builds) fall back to
+ * localStorage. Production web is not a target platform for the MVP.
+ */
+const storage = {
+  get: (key: string): Promise<string | null> =>
+    Platform.OS === 'web'
+      ? Promise.resolve(globalThis.localStorage?.getItem(key) ?? null)
+      : SecureStore.getItemAsync(key),
+  set: async (key: string, value: string): Promise<void> => {
+    if (Platform.OS === 'web') globalThis.localStorage?.setItem(key, value);
+    else await SecureStore.setItemAsync(key, value);
+  },
+  delete: async (key: string): Promise<void> => {
+    if (Platform.OS === 'web') globalThis.localStorage?.removeItem(key);
+    else await SecureStore.deleteItemAsync(key);
+  },
+};
 
 export interface ApiErrorBody {
   error: { code: string; message: string; details?: Record<string, unknown> };
@@ -25,25 +45,16 @@ export class ApiError extends Error {
 }
 
 export async function getTokens(): Promise<{ access: string | null; refresh: string | null }> {
-  const [access, refresh] = await Promise.all([
-    SecureStore.getItemAsync(ACCESS_KEY),
-    SecureStore.getItemAsync(REFRESH_KEY),
-  ]);
+  const [access, refresh] = await Promise.all([storage.get(ACCESS_KEY), storage.get(REFRESH_KEY)]);
   return { access, refresh };
 }
 
 export async function setTokens(access: string, refresh: string): Promise<void> {
-  await Promise.all([
-    SecureStore.setItemAsync(ACCESS_KEY, access),
-    SecureStore.setItemAsync(REFRESH_KEY, refresh),
-  ]);
+  await Promise.all([storage.set(ACCESS_KEY, access), storage.set(REFRESH_KEY, refresh)]);
 }
 
 export async function clearTokens(): Promise<void> {
-  await Promise.all([
-    SecureStore.deleteItemAsync(ACCESS_KEY),
-    SecureStore.deleteItemAsync(REFRESH_KEY),
-  ]);
+  await Promise.all([storage.delete(ACCESS_KEY), storage.delete(REFRESH_KEY)]);
 }
 
 let refreshPromise: Promise<boolean> | null = null;
@@ -101,12 +112,14 @@ export async function api<T>(
   const json = text ? (JSON.parse(text) as unknown) : undefined;
   if (!res.ok) {
     const err = json as ApiErrorBody | undefined;
-    throw new ApiError(
-      res.status,
-      err?.error?.code ?? 'INTERNAL',
-      err?.error?.message ?? 'Something went wrong',
-      err?.error?.details,
-    );
+    let message = err?.error?.message ?? 'Something went wrong';
+    // Surface per-field validation errors so users know what to fix.
+    const fields = err?.error?.details?.fields as Record<string, string[]> | undefined;
+    if (fields) {
+      const firstField = Object.entries(fields)[0];
+      if (firstField) message = `${firstField[0].replaceAll('_', ' ')}: ${firstField[1][0]}`;
+    }
+    throw new ApiError(res.status, err?.error?.code ?? 'INTERNAL', message, err?.error?.details);
   }
   return json as T;
 }

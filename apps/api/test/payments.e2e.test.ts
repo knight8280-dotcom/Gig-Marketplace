@@ -474,6 +474,60 @@ describe('Payments, disputes, notifications (Phases 10–14)', () => {
     expect(finalView.body.state).toBe('PAID');
   });
 
+  it('partially-staffed jobs are charged for actual workers when work starts', async () => {
+    // 2 workers wanted, only 1 accepts, work starts anyway.
+    const job = await request(server())
+      .post('/v1/jobs')
+      .set('Authorization', `Bearer ${customer.token}`)
+      .send(jobPayload({ workers_needed: 2, title: 'Partial staffing charge test job' }))
+      .expect(201);
+    const a = await request(server())
+      .post(`/v1/jobs/${job.body.id}/accept`)
+      .set('Authorization', `Bearer ${worker1.token}`)
+      .expect(200);
+    await settleEvents();
+
+    // Not filled → no charge yet.
+    let payments = await request(server())
+      .get(`/v1/me/payments?job_id=${job.body.id}`)
+      .set('Authorization', `Bearer ${customer.token}`)
+      .expect(200);
+    expect(payments.body.items).toHaveLength(0);
+
+    for (const step of ['en-route', 'arrived', 'start']) {
+      await request(server())
+        .post(`/v1/assignments/${a.body.id}/${step}`)
+        .set('Authorization', `Bearer ${worker1.token}`)
+        .expect(200);
+    }
+    await settleEvents(300);
+
+    // Charged for 1 committed worker (not 2 × workers_needed): $100 gross.
+    payments = await request(server())
+      .get(`/v1/me/payments?job_id=${job.body.id}`)
+      .set('Authorization', `Bearer ${customer.token}`)
+      .expect(200);
+    const charge = payments.body.items.find((p: { kind: string }) => p.kind === 'JOB_PAYMENT');
+    expect(charge.status).toBe('SUCCEEDED');
+    expect(Number(charge.amount_cents)).toBe(10000);
+
+    // Complete + confirm → payout releases normally.
+    await request(server())
+      .post(`/v1/assignments/${a.body.id}/complete`)
+      .set('Authorization', `Bearer ${worker1.token}`)
+      .expect(200);
+    await request(server())
+      .post(`/v1/jobs/${job.body.id}/confirm-completion`)
+      .set('Authorization', `Bearer ${customer.token}`)
+      .expect(200);
+    await settleEvents(300);
+    const view = await request(server())
+      .get(`/v1/jobs/${job.body.id}`)
+      .set('Authorization', `Bearer ${customer.token}`)
+      .expect(200);
+    expect(view.body.state).toBe('PAID');
+  });
+
   it('admin overview reports sane marketplace metrics', async () => {
     const res = await request(server())
       .get('/v1/admin/metrics/overview')

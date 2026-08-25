@@ -63,8 +63,8 @@ export class CreateJobDto {
   @Type(() => LatLngDto)
   location!: LatLngDto;
 
-  /** IANA timezone of the job site. */
-  @Matches(/^[A-Za-z_]+\/[A-Za-z0-9_+\-/]+$/)
+  /** IANA timezone of the job site (slashed zones and single tokens like UTC). */
+  @Matches(/^[A-Za-z_]+(?:[+-]?[0-9]+)?(?:\/[A-Za-z0-9_+\-]+){0,2}$/)
   timezone!: string;
 
   @IsIn(['SCHEDULED', 'SAME_DAY', 'ASAP'])
