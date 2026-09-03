@@ -24,11 +24,24 @@ function RootNavigator() {
     if (!loading) void SplashScreen.hideAsync();
   }, [loading]);
 
-  if (loading) return null;
+  // `loading` is cleared by an effect, and effects never run during the static
+  // web export — so on the server this would stay true, the tree would render
+  // nothing, and every route would export as an identical empty shell with the
+  // site-wide title. Crawlers and link previews read that HTML, so prerender
+  // the routes instead and let the browser hold the splash while it hydrates.
+  const prerendering = typeof window === 'undefined';
+  if (loading && !prerendering) return null;
 
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />
+      {/* Public marketing pages: no header, they render their own site nav. */}
+      <Stack.Screen name="about" />
+      <Stack.Screen name="pricing" />
+      <Stack.Screen name="safety" />
+      <Stack.Screen name="contact" />
+      <Stack.Screen name="terms" />
+      <Stack.Screen name="privacy" />
       <Stack.Screen name="(auth)" />
       <Stack.Screen name="(customer)" />
       <Stack.Screen name="(worker)" />

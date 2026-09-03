@@ -6,6 +6,7 @@ import { Bounded } from '@/components/screen';
 import { SiteHead } from '@/components/site-head';
 import { ThemedText } from '@/components/themed-text';
 import { Card, Columns, Eyebrow, Section, SectionHeading } from '@/components/marketing/section';
+import { PilotNotice, SiteFooter, TopNav } from '@/components/marketing/chrome';
 import { Brand, MaxMarketingWidth, Radius, Spacing } from '@/constants/theme';
 import { useTheme } from '@/hooks/use-theme';
 import { useBreakpoint } from '@/hooks/use-breakpoint';
@@ -37,69 +38,8 @@ export function Landing() {
       <ExamplesSection />
       <FaqSection />
       <ClosingCta />
-      <Footer />
+      <SiteFooter />
     </ScrollView>
-  );
-}
-
-/* ── Pilot disclosure ────────────────────────────────────────────────────── */
-
-function PilotNotice() {
-  const theme = useTheme();
-  return (
-    <View style={[styles.notice, { backgroundColor: theme.primarySoft }]}>
-      <Bounded maxWidth={MaxMarketingWidth}>
-        <ThemedText type="small" style={styles.noticeText}>
-          <ThemedText type="smallBold" style={{ color: Brand.primary }}>
-            Limited pilot.{' '}
-          </ThemedText>
-          We&rsquo;re onboarding a small number of customers and workers in one city while payments
-          run in test mode. Nothing is charged for real yet.
-        </ThemedText>
-      </Bounded>
-    </View>
-  );
-}
-
-/* ── Navigation ──────────────────────────────────────────────────────────── */
-
-function TopNav() {
-  const theme = useTheme();
-  const { isMedium } = useBreakpoint();
-  return (
-    <View style={[styles.navWrap, { borderBottomColor: theme.border, backgroundColor: theme.background }]}>
-      <Bounded maxWidth={MaxMarketingWidth}>
-        <View style={styles.nav}>
-          <View style={styles.brandRow}>
-            <View style={styles.mark}>
-              <Ionicons name="hammer" size={16} color="#fff" />
-            </View>
-            <ThemedText type="smallBold" style={styles.brandName}>
-              Local Gig Marketplace
-            </ThemedText>
-          </View>
-
-          <View style={styles.navActions}>
-            {isMedium ? (
-              <Link href="/(auth)/login" asChild>
-                <Pressable accessibilityRole="link" style={styles.navLink}>
-                  <ThemedText type="smallBold" themeColor="textSecondary">
-                    Sign in
-                  </ThemedText>
-                </Pressable>
-              </Link>
-            ) : null}
-            <Link href="/(auth)/register" asChild>
-              <Pressable accessibilityRole="link" style={styles.navCta}>
-                <ThemedText type="smallBold" style={styles.onPrimary}>
-                  Get started
-                </ThemedText>
-              </Pressable>
-            </Link>
-          </View>
-        </View>
-      </Bounded>
-    </View>
   );
 }
 
@@ -604,31 +544,6 @@ function ClosingCta() {
   );
 }
 
-/* ── Footer ──────────────────────────────────────────────────────────────── */
-
-function Footer() {
-  const theme = useTheme();
-  return (
-    <View style={[styles.footer, { borderTopColor: theme.border, backgroundColor: theme.surfaceSunken }]}>
-      <Bounded maxWidth={MaxMarketingWidth}>
-        <View style={styles.footerInner}>
-          <View style={styles.brandRow}>
-            <View style={styles.mark}>
-              <Ionicons name="hammer" size={14} color="#fff" />
-            </View>
-            <ThemedText type="smallBold">Local Gig Marketplace</ThemedText>
-          </View>
-          <ThemedText type="small" themeColor="textSecondary" style={styles.footerNote}>
-            Working name — final brand not selected. Currently operating as a limited pilot in a
-            single city with payments in test mode. Terms of service and privacy policy are being
-            prepared with counsel and will be published before real payments are enabled.
-          </ThemedText>
-        </View>
-      </Bounded>
-    </View>
-  );
-}
-
 /* ── Styles ──────────────────────────────────────────────────────────────── */
 
 const CTA_BASE = {
@@ -643,35 +558,7 @@ const styles = StyleSheet.create({
   page: { flex: 1 },
   pageContent: { flexGrow: 1 },
 
-  notice: { flexShrink: 0, paddingVertical: Spacing.two },
-  noticeText: { textAlign: 'center' },
 
-  navWrap: { flexShrink: 0, borderBottomWidth: 1 },
-  nav: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: Spacing.three,
-    gap: Spacing.three,
-  },
-  brandRow: { flexDirection: 'row', alignItems: 'center', gap: Spacing.two },
-  mark: {
-    width: 28,
-    height: 28,
-    borderRadius: Radius.sm,
-    backgroundColor: Brand.primary,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  brandName: { fontSize: 15 },
-  navActions: { flexDirection: 'row', alignItems: 'center', gap: Spacing.three },
-  navLink: { paddingVertical: Spacing.two, paddingHorizontal: Spacing.two },
-  navCta: {
-    backgroundColor: Brand.primary,
-    paddingVertical: 10,
-    paddingHorizontal: Spacing.three,
-    borderRadius: Radius.pill,
-  },
   onPrimary: { color: '#ffffff' },
 
   hero: { gap: Spacing.five },
@@ -806,7 +693,4 @@ const styles = StyleSheet.create({
   ctaOnBand: { ...CTA_BASE, backgroundColor: '#ffffff' },
   ctaBandGhost: { ...CTA_BASE, borderWidth: 1.5, borderColor: '#ffffff88' },
 
-  footer: { flexShrink: 0, borderTopWidth: 1, paddingVertical: Spacing.five },
-  footerInner: { gap: Spacing.three },
-  footerNote: { maxWidth: 720, lineHeight: 22 },
 });
