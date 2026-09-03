@@ -165,7 +165,7 @@ export function Badge({
     tone === 'money'
       ? Brand.money
       : tone === 'warning'
-        ? Brand.warning
+        ? Brand.warningText
         : tone === 'neutral'
           ? theme.text
           : Brand.primary;

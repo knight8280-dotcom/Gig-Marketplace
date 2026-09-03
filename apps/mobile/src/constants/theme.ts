@@ -19,6 +19,8 @@ export const Brand = {
   money: '#1F8A4C',
   /** Warnings that need action but are not failures. */
   warning: '#B26B00',
+  /** `warning` fails AA for small text on `warningSoft` (3.8:1); labels use this (5.9:1). */
+  warningText: '#8A5200',
   danger: '#D64545',
 } as const;
 

@@ -43,7 +43,7 @@ const PROBLEMS = [
 const PRINCIPLES = [
   {
     title: 'The money is held, not promised',
-    body: 'The card is charged when a worker commits — before they travel, before they lift anything. The payout is released when the customer confirms. Neither side is asked to trust the other with the timing.',
+    body: 'The card is charged once the job is staffed — or when work starts on a partly-filled one — before anyone lifts anything. The payout is released when the customer confirms. Neither side is asked to trust the other with the timing.',
   },
   {
     title: 'Every step is written down',
@@ -62,7 +62,7 @@ const PRINCIPLES = [
 const WORKING = [
   'Posting a job, matching to nearby workers, and the full accept-to-confirm lifecycle',
   'Job-scoped messaging, two-way ratings, tips, and dispute handling',
-  'Email and phone verification on every account that transacts',
+  'Email verification before anyone can post a job; email and phone verification before anyone can accept one',
 ];
 
 const NOT_YET = [

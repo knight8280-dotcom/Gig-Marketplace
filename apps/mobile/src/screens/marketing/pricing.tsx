@@ -56,8 +56,8 @@ const TIMELINE = [
     body: 'Nothing is charged. Nothing is held.',
   },
   {
-    title: 'A worker accepts',
-    body: 'Your card is charged now, so the worker knows the job is funded before they set off.',
+    title: 'The job is staffed',
+    body: 'Your card is charged when the last slot fills — or when work starts on a partly-filled job — so the worker knows it’s funded before anyone lifts anything.',
   },
   {
     title: 'The work happens',
@@ -78,7 +78,7 @@ const EDGE_CASES = [
   {
     icon: 'close-circle-outline' as const,
     title: 'You need to cancel',
-    body: 'What a cancellation costs depends on how close to the start you are. The consequence is shown to you before you confirm the cancellation, never discovered afterwards.',
+    body: 'What a cancellation costs depends on how close to the start you are. The policy is fixed in advance and the outcome is written to the job’s timeline — nothing is decided case by case.',
   },
   {
     icon: 'document-text-outline' as const,
@@ -88,7 +88,7 @@ const EDGE_CASES = [
   {
     icon: 'lock-closed-outline' as const,
     title: 'Where the money sits meanwhile',
-    body: 'With Stripe, our payment processor — not in an account of ours. We never hold your funds, and there are no stored balances or platform wallets.',
+    body: 'With Stripe, our payment processor. It sits in the platform’s Stripe balance until you confirm, then moves to the worker’s own Stripe account. There is no wallet or bank account we run ourselves.',
   },
 ];
 
@@ -98,19 +98,19 @@ export function Pricing() {
     <MarketingPage>
       <SiteHead
         title="Pricing"
-        description="One platform fee, shown to both sides before anyone commits. Free to browse and post, tips go to the worker in full, and card processing comes out of our fee."
+        description="One published platform fee, applied the same way to every job. Free to browse and post, tips go to the worker in full, and card processing comes out of our fee."
       />
 
       <Section>
         <Eyebrow>Pricing</Eyebrow>
         <View style={styles.hero}>
           <ThemedText style={isMedium ? styles.h1 : styles.h1Small}>
-            One fee. Shown before anyone commits.
+            One fee. Published, not buried.
           </ThemedText>
           <ThemedText themeColor="textSecondary" style={styles.heroSub}>
             No subscription, no listing fee, nothing to pay to look around. A single platform fee
-            comes out of the job when it’s paid — and both sides see the exact figure before either
-            of them agrees to anything.
+            comes out of the job when it’s paid — one published rate, applied the same way to every
+            job.
           </ThemedText>
         </View>
       </Section>
@@ -126,10 +126,10 @@ export function Pricing() {
       <Section>
         <SectionHeading
           title="A $95 job, in full"
-          subtitle="This is the same breakdown both sides see on the job itself — not an estimate, and not a summary that hides a line."
+          subtitle="This is how every job is split — not an estimate, and not a summary that hides a line."
         />
         <View style={isMedium ? styles.exampleWide : styles.example}>
-          <Card style={styles.exampleCard}>
+          <Card style={[styles.exampleCard, isMedium && styles.exampleCardWide]}>
             <View style={styles.exampleHeader}>
               <ThemedText type="smallBold">Unload a 26-foot moving truck</ThemedText>
               <Badge label={money(EXAMPLE_TOTAL)} tone="money" />
@@ -147,7 +147,7 @@ export function Pricing() {
             </ThemedText>
           </Card>
 
-          <Card style={styles.exampleCard}>
+          <Card style={[styles.exampleCard, isMedium && styles.exampleCardWide]}>
             <ThemedText type="smallBold">When the card is charged</ThemedText>
             <View style={styles.timeline}>
               {TIMELINE.map((step, i) => (
@@ -195,7 +195,10 @@ const styles = StyleSheet.create({
 
   example: { gap: Spacing.three },
   exampleWide: { flexDirection: 'row', gap: Spacing.three, alignItems: 'stretch' },
-  exampleCard: { flexGrow: 1, flexShrink: 1, flexBasis: 0, gap: Spacing.two },
+  exampleCard: { gap: Spacing.two },
+  // Zero basis only in the row: in the stacked column it collapses the card to
+  // its padding and the content spills over whatever follows.
+  exampleCardWide: { flexGrow: 1, flexShrink: 1, flexBasis: 0 },
   exampleHeader: {
     flexDirection: 'row',
     alignItems: 'center',

@@ -6,6 +6,33 @@ All notable changes to this project are documented here. Format loosely follows 
 
 ### Marketing pages — about, pricing, safety, contact, terms, privacy (2026-09-03)
 
+**Fixed** (follow-up review of the pages above)
+- **Cards collapsed on phones.** The two-card rows on pricing, safety and
+  contact used `flexBasis: 0` unconditionally; in the stacked column that
+  shrinks each card to its padding and the content paints over whatever
+  follows. The zero basis now applies only in the wide row.
+- **Hydration mismatch on every page.** The export rendered the full tree but
+  the browser's first render returned null while the session loaded, so React
+  discarded the prerendered DOM (error #418) and re-rendered from scratch. The
+  loading gate moved from the root navigator into the routes that need a
+  session, and `useBreakpoint` reports width 0 until hydration is done so the
+  first client render matches the phone-layout export (`hooks/use-hydrated.ts`).
+- **Copy the code did not back**, corrected to what actually happens: the card
+  is charged when the job is staffed (or when work starts on a partly-filled
+  job), not on the first acceptance; phone verification is required to accept,
+  email to post; the fee is not shown on the job itself; cancellation
+  consequences are recorded, not previewed; funds sit in the platform's Stripe
+  balance until confirmation; reports are linked to the job, not delivered
+  with the thread attached; the other party sees a shortened name and rating
+  summary, not a photo or history; email and SMS carry only verification and
+  password-reset messages; Expo's push service is listed as a fifth processor;
+  account deletion and data requests are described as not yet available.
+- **L-1.** Removed the employment-relationship sentence from the terms
+  placeholder and the "not a party to the work" claim from its outline — both
+  are classification positions counsel has not signed off.
+- Warning badge labels use a darker `Brand.warningText` (5.9:1 on
+  `warningSoft`; the old pairing was 3.8:1).
+
 **Added**
 - **Six public pages** at `/about`, `/pricing`, `/safety`, `/contact`, `/terms`
   and `/privacy`, linked from a new footer nav on every marketing page. Same

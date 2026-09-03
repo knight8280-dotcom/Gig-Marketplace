@@ -47,11 +47,15 @@ const PROCESSORS = [
   },
   {
     title: 'The SMS provider',
-    body: 'Receives your phone number to deliver a verification code and job alerts. Nothing else is sent to it.',
+    body: 'Receives your phone number to deliver a verification code. Nothing else is sent to it.',
   },
   {
     title: 'The email provider',
-    body: 'Receives your address to deliver verification, password resets and job notifications.',
+    body: 'Receives your address to deliver verification codes and password resets.',
+  },
+  {
+    title: 'The push notification service',
+    body: 'Receives your device’s push token and the text of each notification — a job title, a status change — so it can deliver it to your phone.',
   },
   {
     title: 'The hosting provider',
@@ -60,7 +64,7 @@ const PROCESSORS = [
 ];
 
 const VISIBLE = [
-  'Your name and photo, and your rating history',
+  'Your first name and last initial, your average rating and how many jobs you’ve completed',
   'What you wrote in the job and in the message thread',
   'The address — but only once they’re assigned to the job',
 ];
@@ -72,10 +76,10 @@ const NOT_VISIBLE = [
 ];
 
 const RIGHTS = [
-  'A copy of your data. Ask from the address on the account and we’ll send what we hold.',
+  'A copy of your data — once a support address is published; the contact page says where that stands. Nothing is sold or shared meanwhile.',
   'A correction. Most of it you can edit yourself; anything you can’t, ask.',
-  'Deletion. Your account and profile go. Records attached to a completed job — the timeline, the payment record, the audit trail — are kept where we’re required to keep them, because they belong to the other person’s history too.',
-  'Fewer notifications. Email and SMS alerts can be turned down without closing the account.',
+  'Deletion. Not self-serve yet — it lands with the support address, before real payments switch on. When it runs, your account and profile go; records attached to a completed job — the timeline, the payment record, the audit trail — are kept where we’re required to keep them, because they belong to the other person’s history too.',
+  'Fewer notifications. Job updates arrive in the app and as push notifications. We send no marketing email or SMS, so there is nothing to opt out of there.',
 ];
 
 export function Privacy() {
@@ -133,7 +137,7 @@ export function Privacy() {
         <View style={styles.doc}>
           <SectionHeading
             title="Who else sees it"
-            subtitle="Four companies, each doing one job. The full policy will name them and link their own terms."
+            subtitle="Five companies, each doing one job. The full policy will name them and link their own terms."
           />
           <Grid columns={2}>
             {PROCESSORS.map((item) => (
@@ -148,7 +152,7 @@ export function Privacy() {
           <Callout tone="neutral">
             <ThemedText themeColor="textSecondary" style={styles.body}>
               We don’t sell personal data, we don’t share it with advertisers, and the site carries
-              no third-party tracking. Beyond the four above, information leaves only where the law
+              no third-party tracking. Beyond the five above, information leaves only where the law
               requires it or where you ask us to send it.
             </ThemedText>
           </Callout>
@@ -177,8 +181,8 @@ export function Privacy() {
       <Section>
         <View style={styles.doc}>
           <SectionHeading
-            title="What you can ask for"
-            subtitle="These work today while the formal process is being written."
+            title="What you can ask for, and where it stands"
+            subtitle="Where each of these stands today, while the formal process is being written."
           />
           <Card>
             <BulletList items={RIGHTS} />

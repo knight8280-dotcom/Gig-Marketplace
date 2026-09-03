@@ -20,7 +20,7 @@ import { useBreakpoint } from '@/hooks/use-breakpoint';
 const OUTLINE = [
   {
     title: 'Who the agreement is between',
-    body: 'The job itself is an agreement between the customer and the worker. The platform’s role is to introduce them, hold the money and keep the record — it is not a party to the work.',
+    body: 'What the platform does — introduce the two sides, hold the money, keep the record — and what each side owes the other on a job.',
   },
   {
     title: 'Who can use it',
@@ -57,7 +57,6 @@ const INTERIM = [
   'You can close your account and ask for your data to be removed at any time.',
   'We can suspend an account that’s being used to harass, threaten or defraud someone, and we’ll say why when we do.',
   'Categories that need a licence or special handling stay switched off — they aren’t available to post into.',
-  'Nothing here creates an employment relationship. Everyone taking work does so on their own account.',
 ];
 
 export function Terms() {

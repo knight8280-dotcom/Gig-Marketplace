@@ -10,7 +10,7 @@ import { useAuth } from '@/state/auth';
 import { api } from '@/api/client';
 import { useTheme } from '@/hooks/use-theme';
 
-export default function ConversationScreen() {
+function ConversationScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
   const theme = useTheme();
@@ -100,3 +100,10 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
 });
+
+/** Signed-in screen: wait for the session rather than render it with no user. */
+export default function ConversationScreenRoute() {
+  const { loading } = useAuth();
+  if (loading) return null;
+  return <ConversationScreen />;
+}
