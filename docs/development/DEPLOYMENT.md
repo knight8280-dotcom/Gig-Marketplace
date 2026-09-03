@@ -53,6 +53,21 @@ that takes a Dockerfile (Fly.io, Railway, Render, Cloud Run, a VPS):
 docker build -f apps/api/Dockerfile -t gig-api .   # from the repository root
 ```
 
+### Railway
+
+`railway.json` at the repository root points Railway at
+`apps/api/Dockerfile` and sets `/healthz` as the health check. Without it
+Railway looks for a Dockerfile at the root, finds none, and falls back to
+guessing a build for the whole monorepo.
+
+New Project → Deploy from GitHub repo → pick this repository. Add the
+environment below under **Variables**, then **Settings → Networking →
+Generate Domain** to get a public URL.
+
+For the admin dashboard, add a second service from the same repository and set
+**Settings → Config-as-code** to `railway.admin.json`. Its API URL is baked in
+at build time, so set `NEXT_PUBLIC_API_URL` as a *build* variable there.
+
 On a host that builds from source instead of a Dockerfile, use:
 
 | | |
