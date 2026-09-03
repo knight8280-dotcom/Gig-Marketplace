@@ -35,7 +35,7 @@ const FAQ = [
   {
     question: '“How do I delete my account?”',
     answer:
-      'Ask us from the address on the account. Records tied to a completed job are kept where we’re required to keep them.',
+      'Not from the app yet, and there’s no support address to write to yet either — both are being finished before real payments switch on. Nothing about your account is charged or shared in the meantime.',
   },
   {
     question: '“Where are your terms?”',
@@ -78,7 +78,7 @@ export function Contact() {
             icon="shield-outline"
             tone="danger"
             title="Something unsafe"
-            body={`Use Report inside the job itself — it arrives with the timeline and messages already attached, which is most of what we’d otherwise have to ask you for. In immediate danger, call your local emergency number first.`}
+            body={`Use Report inside the job itself — it arrives linked to the job, so we can pull up its timeline instead of asking you to reconstruct it. In immediate danger, call your local emergency number first.`}
           />
           <IconCard
             icon="card-outline"
@@ -97,7 +97,7 @@ export function Contact() {
       <Section>
         <SectionHeading title="How we reach you, and how we don’t" />
         <View style={isMedium ? styles.splitWide : styles.split}>
-          <Card style={styles.splitCard}>
+          <Card style={[styles.splitCard, isMedium && styles.splitCardWide]}>
             <ThemedText style={styles.cardTitle}>Email support isn’t open yet</ThemedText>
             <ThemedText themeColor="textSecondary" style={styles.cardBody}>
               {SUPPORT_EMAIL
@@ -105,12 +105,12 @@ export function Contact() {
                 : 'We haven’t published a support address for the pilot yet. Until we do, the report and dispute flows inside a job are the routes that actually reach us — they carry the job’s record with them, which email wouldn’t. An address will be listed here before real payments switch on.'}
             </ThemedText>
           </Card>
-          <Card style={styles.splitCard}>
+          <Card style={[styles.splitCard, isMedium && styles.splitCardWide]}>
             <ThemedText style={styles.cardTitle}>There is no phone line</ThemedText>
             <ThemedText themeColor="textSecondary" style={styles.cardBody}>
               No support number and no live chat. Anyone who calls or texts you claiming to be from
-              this platform isn’t — we only ever contact you through the app, or by email from an
-              address listed on this page.
+              this platform isn’t — we only ever contact you through the app, or by email about your
+              own account: a verification code or a password reset, never a request for anything.
             </ThemedText>
           </Card>
         </View>
@@ -151,7 +151,10 @@ const styles = StyleSheet.create({
 
   split: { gap: Spacing.three },
   splitWide: { flexDirection: 'row', gap: Spacing.three, alignItems: 'stretch' },
-  splitCard: { flexGrow: 1, flexShrink: 1, flexBasis: 0, gap: Spacing.two },
+  splitCard: { gap: Spacing.two },
+  // Zero basis only in the row: in the stacked column it collapses the card to
+  // its padding and the content spills over whatever follows.
+  splitCardWide: { flexGrow: 1, flexShrink: 1, flexBasis: 0 },
   cardTitle: { fontSize: 22, lineHeight: 30, fontWeight: '700', letterSpacing: -0.3 },
   cardBody: { fontSize: 16, lineHeight: 24 },
   faqCard: { height: '100%' },

@@ -11,7 +11,7 @@ import { useAuth } from '@/state/auth';
 import { cardEntrySupported, presentCardSetup } from '@/lib/stripe-sheet';
 
 /** Customer card setup (Stripe payment sheet) + worker payout onboarding. */
-export default function PaymentMethods() {
+function PaymentMethods() {
   const { user } = useAuth();
   const qc = useQueryClient();
   const [error, setError] = useState<string | null>(null);
@@ -133,3 +133,10 @@ const styles = StyleSheet.create({
   section: { gap: 10 },
   dim: { opacity: 0.65 },
 });
+
+/** Signed-in screen: wait for the session rather than render it with no user. */
+export default function PaymentMethodsRoute() {
+  const { loading } = useAuth();
+  if (loading) return null;
+  return <PaymentMethods />;
+}

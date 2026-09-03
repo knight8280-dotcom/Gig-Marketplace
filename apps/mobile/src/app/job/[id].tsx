@@ -20,7 +20,7 @@ import { AuthedImage } from '@/components/authed-image';
 import { useQuery } from '@tanstack/react-query';
 
 /** Role-aware job detail: workers accept/execute; customers monitor/confirm. */
-export default function JobDetail() {
+function JobDetail() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user, mode } = useAuth();
   const job = useJob(id);
@@ -333,3 +333,10 @@ const styles = StyleSheet.create({
   photo: { width: 96, height: 96, borderRadius: 10 },
   paymentWarning: { color: '#d97706' },
 });
+
+/** Signed-in screen: wait for the session rather than render it with no user. */
+export default function JobDetailRoute() {
+  const { loading } = useAuth();
+  if (loading) return null;
+  return <JobDetail />;
+}

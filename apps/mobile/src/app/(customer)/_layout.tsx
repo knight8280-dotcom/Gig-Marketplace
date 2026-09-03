@@ -4,7 +4,10 @@ import { tabIcon } from '@/components/tab-icon';
 import { Brand } from '@/constants/theme';
 
 export default function CustomerTabs() {
-  const { user, mode } = useAuth();
+  const { user, mode, loading } = useAuth();
+  // Wait for the session before deciding — redirecting on the not-yet-loaded
+  // null would bounce a signed-in user to the welcome screen.
+  if (loading) return null;
   if (!user) return <Redirect href="/(auth)/welcome" />;
   if (mode !== 'CUSTOMER') return <Redirect href="/" />;
 

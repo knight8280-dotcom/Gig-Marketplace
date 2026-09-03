@@ -1,6 +1,7 @@
 import { useWindowDimensions } from 'react-native';
 
 import { Breakpoints } from '@/constants/theme';
+import { useHydrated } from '@/hooks/use-hydrated';
 
 export interface Breakpoint {
   width: number;
@@ -18,7 +19,13 @@ export interface Breakpoint {
  * browser window drag work.
  */
 export function useBreakpoint(): Breakpoint {
-  const { width } = useWindowDimensions();
+  const dimensions = useWindowDimensions();
+  // The static export has no window, so it renders every page at width 0 (the
+  // phone layout). The hydration pass has to produce that same tree — a
+  // desktop viewport that hydrated straight into the wide layout would add a
+  // nav link and change every grid, and React would discard the server DOM.
+  // Report 0 until hydration is done; the real width lands one render later.
+  const width = useHydrated() ? dimensions.width : 0;
   return {
     width,
     isMedium: width >= Breakpoints.md,

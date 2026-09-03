@@ -24,14 +24,13 @@ function RootNavigator() {
     if (!loading) void SplashScreen.hideAsync();
   }, [loading]);
 
-  // `loading` is cleared by an effect, and effects never run during the static
-  // web export — so on the server this would stay true, the tree would render
-  // nothing, and every route would export as an identical empty shell with the
-  // site-wide title. Crawlers and link previews read that HTML, so prerender
-  // the routes instead and let the browser hold the splash while it hydrates.
-  const prerendering = typeof window === 'undefined';
-  if (loading && !prerendering) return null;
-
+  // No loading gate here. `loading` is cleared by an effect, and effects never
+  // run during the static web export, so a gate at this level exports every
+  // route as an empty shell — and gating it on "is this the server" instead
+  // makes the browser's hydration render differ from the HTML, which React
+  // treats as a mismatch and throws the prerendered DOM away. The routes that
+  // need a session wait for it themselves: the tab-group layouts and the
+  // signed-in screens return null while loading; the marketing pages never do.
   return (
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="index" />

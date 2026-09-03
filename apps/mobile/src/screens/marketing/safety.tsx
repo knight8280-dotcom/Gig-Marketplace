@@ -28,7 +28,7 @@ const BUILT_IN = [
   {
     icon: 'checkmark-done-outline' as const,
     title: 'A real email and a real phone',
-    body: 'Both are verified with a code before an account can post a job or accept one. It doesn’t prove who someone is, but it does mean a throwaway account takes real effort.',
+    body: 'Email is verified with a code before anyone can post a job; email and phone both before anyone can accept one. It doesn’t prove who someone is, but it does mean a throwaway account takes real effort.',
   },
   {
     icon: 'location-outline' as const,
@@ -68,7 +68,7 @@ const REPORT_CATEGORIES = [
 ];
 
 const REVIEW_STEPS = [
-  'It enters the review queue with the job’s timeline and message thread attached.',
+  'It enters the review queue linked to the job and the person, so the job’s timeline can be pulled up alongside it.',
   'Someone reads it and records an outcome — reviewed, acted on, or dismissed — with a written reason.',
   'That decision is itself logged, so there’s a record of who reviewed what and why.',
 ];
@@ -147,7 +147,7 @@ export function Safety() {
           subtitle="Anyone on a job can file a report about that job or the other person. Every report lands in a review queue that a person reads."
         />
         <View style={isMedium ? styles.splitWide : styles.split}>
-          <Card style={styles.splitCard}>
+          <Card style={[styles.splitCard, isMedium && styles.splitCardWide]}>
             <ThemedText style={styles.cardTitle}>What you can report</ThemedText>
             <Pills items={REPORT_CATEGORIES} />
             <ThemedText themeColor="textSecondary" style={styles.cardBody}>
@@ -155,7 +155,7 @@ export function Safety() {
               own words — there’s no form to decode and no minimum severity to clear.
             </ThemedText>
           </Card>
-          <Card style={styles.splitCard}>
+          <Card style={[styles.splitCard, isMedium && styles.splitCardWide]}>
             <ThemedText style={styles.cardTitle}>What we do with it</ThemedText>
             <View style={styles.steps}>
               {REVIEW_STEPS.map((step, i) => (
@@ -210,7 +210,10 @@ const styles = StyleSheet.create({
 
   split: { gap: Spacing.three },
   splitWide: { flexDirection: 'row', gap: Spacing.three, alignItems: 'stretch' },
-  splitCard: { flexGrow: 1, flexShrink: 1, flexBasis: 0, gap: Spacing.three },
+  splitCard: { gap: Spacing.three },
+  // Zero basis only in the row: in the stacked column it collapses the card to
+  // its padding and the content spills over whatever follows.
+  splitCardWide: { flexGrow: 1, flexShrink: 1, flexBasis: 0 },
   cardTitle: { fontSize: 22, lineHeight: 30, fontWeight: '700', letterSpacing: -0.3 },
   cardBody: { fontSize: 16, lineHeight: 24 },
   steps: { gap: Spacing.three },
