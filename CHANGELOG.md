@@ -4,6 +4,34 @@ All notable changes to this project are documented here. Format loosely follows 
 
 ## [Unreleased]
 
+### Marketing pages — about, pricing, safety, contact, terms, privacy (2026-09-03)
+
+**Added**
+- **Six public pages** at `/about`, `/pricing`, `/safety`, `/contact`, `/terms`
+  and `/privacy`, linked from a new footer nav on every marketing page. Same
+  compliance limits as the landing page: no insurance (L-3), no background
+  checks (L-4), no worker-classification language (L-1). The safety page states
+  those absences outright rather than omitting them. Pricing shows the seeded
+  pilot fee (15%, `bootstrap-cli.ts`) with a callout that the level is not
+  final (P-3); the constant lives at the top of `screens/marketing/pricing.tsx`.
+  Terms and privacy are honest placeholders — they say nothing is in force yet,
+  give the settled outline, and describe how the pilot actually runs
+  meanwhile. Contact has no form: a Send button that does nothing is the kind
+  of thing the about page says we don't ship, and `SUPPORT_EMAIL` stays `null`
+  until a real address exists.
+- **Shared marketing chrome** (`components/marketing/chrome.tsx`): the pilot
+  notice, top nav and footer moved out of `landing.tsx` so the disclosure
+  wording is edited in one place. `blocks.tsx` holds the repeated shapes
+  (grid, icon card, numbered item, callout, badge, bullet list).
+
+**Fixed**
+- **Every route exported as an identical empty shell.** `RootNavigator`
+  returned `null` while auth was loading, and effects never run during the
+  static export, so the prerendered HTML carried no content and every page
+  shared the site-wide title and description — what crawlers and link previews
+  read. The navigator now renders during prerender; each page exports with its
+  own content, title and description.
+
 ### Website launch — landing page, GitHub Pages deploy, green CI (2026-08-25)
 
 **The customer/worker website is live at
